@@ -3,21 +3,19 @@
 pub use std::iter;
 
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
-pub use near_sdk::json_types::{Base58CryptoHash, ValidAccountId, WrappedBalance};
+pub use near_sdk::json_types::Base58CryptoHash;
 use near_sdk::serde_json::json;
-pub use near_sdk::{env, serde_json, AccountId, Balance, Gas, Timestamp};
+pub use near_sdk::{env, serde_json, AccountId, Gas, NearToken, Timestamp};
 use near_sdk_sim::runtime::GenesisConfig;
 pub use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, ExecutionResult, UserAccount, ViewResult,
 };
 
-pub use ft_lockup::draft::{Draft, DraftGroupIndex, DraftIndex};
-use ft_lockup::ft_token_receiver::DraftGroupFunding;
 pub use ft_lockup::lockup::{Lockup, LockupCreate, LockupIndex};
 pub use ft_lockup::schedule::{Checkpoint, Schedule};
 pub use ft_lockup::termination::{TerminationConfig, VestingConditions};
-pub use ft_lockup::view::{DraftGroupView, DraftView, LockupView};
-pub use ft_lockup::{ContractContract as FtLockupContract, TimestampSec};
+pub use ft_lockup::view::LockupView;
+pub use ft_lockup::{Contract as FtLockupContract, TimestampSec};
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     FT_LOCKUP_WASM_BYTES => "res/ft_lockup.wasm",
@@ -43,7 +41,7 @@ pub const CLAIM_GAS: Gas = 100 * T_GAS;
 pub const TERMINATE_GAS: Gas = 100 * T_GAS;
 
 pub const TOKEN_DECIMALS: u8 = 18;
-pub const TOKEN_TOTAL_SUPPLY: Balance = d(1_000_000, TOKEN_DECIMALS);
+pub const TOKEN_TOTAL_SUPPLY: NearToken = d(1_000_000, TOKEN_DECIMALS);
 
 pub struct Env {
     pub root: UserAccount,
@@ -62,19 +60,19 @@ pub struct Users {
     pub eve: UserAccount,
 }
 
-pub fn lockup_vesting_schedule(amount: u128) -> (Schedule, Schedule) {
+pub fn lockup_vesting_schedule(amount: NearToken) -> (Schedule, Schedule) {
     let lockup_schedule = Schedule(vec![
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC,
-            balance: 0,
+            balance: ZERO_NEAR,
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 2,
-            balance: 0,
+            balance: ZERO_NEAR,
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
-            balance: amount * 3 / 4,
+            balance: amount.saturating_mul(3).saturating_div(4),
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4 + 1,
@@ -84,15 +82,15 @@ pub fn lockup_vesting_schedule(amount: u128) -> (Schedule, Schedule) {
     let vesting_schedule = Schedule(vec![
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC,
-            balance: 0,
+            balance: ZERO_NEAR,
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC - 1,
-            balance: 0,
+            balance: ZERO_NEAR,
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC,
-            balance: amount / 4,
+            balance: amount.saturating_div(4),
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
@@ -102,15 +100,15 @@ pub fn lockup_vesting_schedule(amount: u128) -> (Schedule, Schedule) {
     (lockup_schedule, vesting_schedule)
 }
 
-pub fn lockup_vesting_schedule_2(amount: u128) -> (Schedule, Schedule) {
+pub fn lockup_vesting_schedule_2(amount: NearToken) -> (Schedule, Schedule) {
     let lockup_schedule = Schedule(vec![
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 2,
-            balance: 0,
+            balance: ZERO_NEAR,
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
-            balance: amount * 3 / 4,
+            balance: amount.saturating_mul(3).saturating_div(4),
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4 + 1,
@@ -120,11 +118,11 @@ pub fn lockup_vesting_schedule_2(amount: u128) -> (Schedule, Schedule) {
     let vesting_schedule = Schedule(vec![
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC - 1,
-            balance: 0,
+            balance: ZERO_NEAR,
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC,
-            balance: amount / 4,
+            balance: amount.saturating_div(4),
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
@@ -263,7 +261,7 @@ impl Env {
             "ft_transfer_call",
             &json!({
                 "receiver_id": self.contract.user_account.valid_account_id(),
-                "amount": WrappedBalance::from(amount),
+                "amount": NearToken::from(amount),
                 "msg": msg,
             })
             .to_string()
@@ -447,66 +445,6 @@ impl Env {
                 .add_to_draft_operators_whitelist(vec![account_id.clone()]),
             DEFAULT_GAS,
             1,
-        )
-    }
-
-    pub fn create_draft_group(&self, user: &UserAccount) -> ExecutionResult {
-        user.function_call(self.contract.contract.create_draft_group(), DEFAULT_GAS, 0)
-    }
-
-    pub fn create_draft(&self, user: &UserAccount, draft: &Draft) -> ExecutionResult {
-        user.function_call(
-            self.contract.contract.create_draft(draft.clone()),
-            DEFAULT_GAS,
-            0,
-        )
-    }
-
-    pub fn create_drafts(&self, user: &UserAccount, drafts: &Vec<Draft>) -> ExecutionResult {
-        user.function_call(
-            self.contract.contract.create_drafts(drafts.clone()),
-            MAX_GAS,
-            0,
-        )
-    }
-
-    pub fn convert_draft(&self, user: &UserAccount, draft_id: DraftIndex) -> ExecutionResult {
-        user.function_call(
-            self.contract.contract.convert_draft(draft_id),
-            DEFAULT_GAS,
-            0,
-        )
-    }
-
-    pub fn convert_drafts(
-        &self,
-        user: &UserAccount,
-        draft_ids: &Vec<DraftIndex>,
-    ) -> ExecutionResult {
-        user.function_call(
-            self.contract.contract.convert_drafts(draft_ids.clone()),
-            DEFAULT_GAS,
-            0,
-        )
-    }
-
-    pub fn discard_draft_group(
-        &self,
-        user: &UserAccount,
-        draft_group_id: DraftGroupIndex,
-    ) -> ExecutionResult {
-        user.function_call(
-            self.contract.contract.discard_draft_group(draft_group_id),
-            DEFAULT_GAS,
-            0,
-        )
-    }
-
-    pub fn delete_drafts(&self, user: &UserAccount, draft_ids: Vec<DraftIndex>) -> ExecutionResult {
-        user.function_call(
-            self.contract.contract.delete_drafts(draft_ids),
-            DEFAULT_GAS,
-            0,
         )
     }
 

@@ -1,6 +1,7 @@
 mod setup;
 
 use crate::setup::*;
+use near_sdk::NearToken;
 
 #[test]
 fn test_hash_schedule() {
@@ -34,7 +35,7 @@ fn test_validate_schedule() {
     let incompatible_vesting_schedule = Schedule(vec![
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
-            balance: 0,
+            balance: NearToken::from_near(0),
         },
         Checkpoint {
             timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4 + 1,

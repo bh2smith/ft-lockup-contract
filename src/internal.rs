@@ -8,23 +8,15 @@ impl Contract {
         );
     }
 
-    pub(crate) fn assert_draft_operators_whitelist(&self, account_id: &AccountId) {
-        assert!(
-            (self.deposit_whitelist.contains(account_id)
-                || self.draft_operators_whitelist.contains(account_id)),
-            "Not in draft operators whitelist"
-        );
-    }
-
     pub(crate) fn internal_add_lockup(&mut self, lockup: &Lockup) -> LockupIndex {
         let index = self.lockups.len() as LockupIndex;
         self.lockups.push(lockup);
         let mut indices = self
             .account_lockups
-            .get(lockup.account_id.as_ref())
+            .get(&lockup.account_id)
             .unwrap_or_default();
         indices.insert(index);
-        self.internal_save_account_lockups(lockup.account_id.as_ref(), indices);
+        self.internal_save_account_lockups(&lockup.account_id, indices);
         index
     }
 
@@ -68,7 +60,7 @@ impl Contract {
                     lockup_index,
                 );
                 let lockup = self.lockups.get(lockup_index as _).unwrap();
-                (lockup_index.clone(), lockup)
+                (lockup_index, lockup)
             })
             .collect()
     }

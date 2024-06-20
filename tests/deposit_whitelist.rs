@@ -50,7 +50,7 @@ fn test_deposit_whitelist_get() {
         schedule: Schedule(vec![
             Checkpoint {
                 timestamp: 0,
-                balance: 0,
+                balance: ZERO_NEAR,
             },
             Checkpoint {
                 timestamp: 1,

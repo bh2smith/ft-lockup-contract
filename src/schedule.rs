@@ -1,13 +1,11 @@
 use crate::*;
-
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
 #[serde(crate = "near_sdk::serde")]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
 pub struct Checkpoint {
     /// The unix-timestamp in seconds since the epoch.
     pub timestamp: TimestampSec,
-    #[serde(with = "u128_dec_format")]
-    pub balance: Balance,
+    pub balance: NearToken,
 }
 
 #[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
@@ -25,39 +23,39 @@ impl Schedule {
         Self(vec![
             Checkpoint {
                 timestamp: start_timestamp,
-                balance: 0,
+                balance: ZERO_NEAR,
             },
             Checkpoint {
                 timestamp: finish_timestamp,
-                balance: 0,
+                balance: ZERO_NEAR,
             },
         ])
     }
 
-    pub fn new_unlocked_since(total_balance: Balance, timestamp: TimestampSec) -> Self {
+    pub fn new_unlocked_since(total_balance: NearToken, timestamp: TimestampSec) -> Self {
         assert!(timestamp > 0, "Invariant");
         Self(vec![
             Checkpoint {
                 timestamp: timestamp - 1,
-                balance: 0,
+                balance: ZERO_NEAR,
             },
             Checkpoint {
-                timestamp: timestamp,
+                timestamp,
                 balance: total_balance,
             },
         ])
     }
 
     #[cfg(not(target_arch = "wasm32"))]
-    pub fn new_unlocked(total_balance: Balance) -> Self {
+    pub fn new_unlocked(total_balance: NearToken) -> Self {
         Self::new_unlocked_since(total_balance, 1)
     }
 
-    pub fn assert_valid(&self, total_balance: Balance) {
+    pub fn assert_valid(&self, total_balance: NearToken) {
         assert!(self.0.len() >= 2, "At least two checkpoints is required");
         assert_eq!(
             self.0.first().unwrap().balance,
-            0,
+            ZERO_NEAR,
             "The first checkpoint balance should be 0"
         );
         for i in 1..self.0.len() {
@@ -65,7 +63,7 @@ impl Schedule {
             assert!(self.0[i - 1].balance <= self.0[i].balance, "The balance of checkpoint #{} should be not greater than the balance of the next checkpoint", i - 1);
         }
         assert!(
-            self.total_balance() > 0,
+            self.total_balance() > ZERO_NEAR,
             "expected total balance to be positive",
         );
         assert_eq!(
@@ -94,7 +92,7 @@ impl Schedule {
         }
     }
 
-    pub fn unlocked_balance(&self, current_timestamp: TimestampSec) -> Balance {
+    pub fn unlocked_balance(&self, current_timestamp: TimestampSec) -> NearToken {
         // Using binary search by time to find the current checkpoint.
         let index = match self
             .0
@@ -106,7 +104,7 @@ impl Schedule {
             Err(index) => {
                 if index == 0 {
                     // Not started
-                    return 0;
+                    return ZERO_NEAR;
                 }
                 index - 1
             }
@@ -120,21 +118,21 @@ impl Schedule {
 
         let total_duration = next_checkpoint.timestamp - checkpoint.timestamp;
         let passed_duration = current_timestamp - checkpoint.timestamp;
-        checkpoint.balance
-            + (U256::from(passed_duration)
-                * U256::from(next_checkpoint.balance - checkpoint.balance)
-                / U256::from(total_duration))
-            .as_u128()
+        let vested = checkpoint.balance.as_yoctonear()
+            + passed_duration
+                * (next_checkpoint.balance.as_yoctonear() - checkpoint.balance.as_yoctonear())
+                / total_duration;
+        NearToken::from_yoctonear(vested)
     }
 
-    pub fn total_balance(&self) -> Balance {
+    pub fn total_balance(&self) -> NearToken {
         self.0.last().unwrap().balance
     }
 
     /// Terminates the lockup schedule earlier.
     /// Assumes new_total_balance is not greater than the current total balance.
-    pub fn terminate(&mut self, new_total_balance: Balance, finish_timestamp: TimestampSec) {
-        if new_total_balance == 0 {
+    pub fn terminate(&mut self, new_total_balance: NearToken, finish_timestamp: TimestampSec) {
+        if new_total_balance == ZERO_NEAR {
             // finish_timestamp is a hint, only used for fully unvested schedules
             // can be overwritten to preserve schedule invariants
             // used to preserve part of the schedule before the termination happens
@@ -155,14 +153,14 @@ impl Schedule {
             if self.0.last().unwrap().balance < new_total_balance {
                 let prev_checkpoint = self.0.last().unwrap().clone();
                 let timestamp_diff = checkpoint.timestamp - prev_checkpoint.timestamp;
-                let balance_diff = checkpoint.balance - prev_checkpoint.balance;
-                let required_balance_diff = new_total_balance - prev_checkpoint.balance;
+                let balance_diff =
+                    checkpoint.balance.as_yoctonear() - prev_checkpoint.balance.as_yoctonear();
+                let required_balance_diff =
+                    new_total_balance.as_yoctonear() - prev_checkpoint.balance.as_yoctonear();
                 // Computing the new timestamp rounding up
                 let new_timestamp = prev_checkpoint.timestamp
-                    + ((U256::from(timestamp_diff) * U256::from(required_balance_diff)
-                        + U256::from(balance_diff - 1))
-                        / U256::from(balance_diff))
-                    .as_u32();
+                    + ((timestamp_diff * required_balance_diff + (balance_diff - 1))
+                        / balance_diff);
                 self.0.push(Checkpoint {
                     timestamp: new_timestamp,
                     balance: new_total_balance,
@@ -173,8 +171,9 @@ impl Schedule {
         unreachable!();
     }
 
+    // TODO - how to serialize Schedule?
     pub fn hash(&self) -> CryptoHash {
-        let value_hash = env::sha256(&self.try_to_vec().unwrap());
+        let value_hash = env::sha256(borsh::to_vec(&self.0).unwrap().as_slice());
         let mut res = CryptoHash::default();
         res.copy_from_slice(&value_hash);
 

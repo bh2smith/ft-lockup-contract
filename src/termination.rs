@@ -15,7 +15,7 @@ pub enum VestingConditions {
 pub struct TerminationConfig {
     /// The account ID who paid for the lockup creation
     /// and will receive unvested balance upon termination
-    pub beneficiary_id: ValidAccountId,
+    pub beneficiary_id: AccountId,
     /// An optional vesting schedule
     pub vesting_schedule: VestingConditions,
 }
@@ -25,7 +25,7 @@ impl Lockup {
         &mut self,
         hashed_schedule: Option<Schedule>,
         termination_timestamp: TimestampSec,
-    ) -> (Balance, AccountId) {
+    ) -> (NearToken, AccountId) {
         let termination_config = self
             .termination_config
             .take()
@@ -47,14 +47,14 @@ impl Lockup {
                 self.schedule.assert_valid_termination_schedule(schedule);
                 schedule
             }
-            VestingConditions::Schedule(schedule) => &schedule,
+            VestingConditions::Schedule(schedule) => schedule,
         }
         .unlocked_balance(termination_timestamp);
-        let unvested_balance = total_balance - vested_balance;
-        if unvested_balance > 0 {
+        let unvested_balance = total_balance.saturating_sub(vested_balance);
+        if unvested_balance > ZERO_NEAR {
             self.schedule
                 .terminate(vested_balance, termination_timestamp);
         }
-        (unvested_balance, termination_config.beneficiary_id.into())
+        (unvested_balance, termination_config.beneficiary_id)
     }
 }
