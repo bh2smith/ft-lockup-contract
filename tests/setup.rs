@@ -3,19 +3,22 @@
 pub use std::iter;
 
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
-pub use near_sdk::json_types::Base58CryptoHash;
 use near_sdk::serde_json::json;
-pub use near_sdk::{env, serde_json, AccountId, Gas, NearToken, Timestamp};
+pub use near_sdk::{
+    env, json_types::Base58CryptoHash, serde_json, AccountId, Gas, NearToken, Timestamp,
+};
 use near_sdk_sim::runtime::GenesisConfig;
 pub use near_sdk_sim::{
     deploy, init_simulator, to_yocto, ContractAccount, ExecutionResult, UserAccount, ViewResult,
 };
 
-pub use ft_lockup::lockup::{Lockup, LockupCreate, LockupIndex};
-pub use ft_lockup::schedule::{Checkpoint, Schedule};
-pub use ft_lockup::termination::{TerminationConfig, VestingConditions};
-pub use ft_lockup::view::LockupView;
-pub use ft_lockup::{Contract as FtLockupContract, TimestampSec};
+pub use ft_lockup::{
+    lockup::{Lockup, LockupCreate, LockupIndex},
+    schedule::{Checkpoint, Schedule},
+    termination::{TerminationConfig, VestingConditions},
+    view::LockupView,
+    Contract as FtLockupContract, TimestampSec,
+};
 
 near_sdk_sim::lazy_static_include::lazy_static_include_bytes! {
     FT_LOCKUP_WASM_BYTES => "res/ft_lockup.wasm",

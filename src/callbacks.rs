@@ -1,10 +1,13 @@
-use crate::event::{emit, FtLockup, FtLockupClaimLockup, FtLockupCreateLockup};
-use crate::lockup::{Lockup, LockupClaim};
-use crate::util::{current_timestamp_sec, ZERO_NEAR};
-use crate::ContractExt;
-use crate::{Contract, StorageKey};
-use near_sdk::collections::UnorderedSet;
-use near_sdk::{ext_contract, is_promise_success, log, near_bindgen, AccountId, NearToken};
+use crate::{
+    event::{emit, FtLockup, FtLockupClaimLockup, FtLockupCreateLockup},
+    lockup::{Lockup, LockupClaim},
+    util::{current_timestamp_sec, ZERO_NEAR},
+    Contract, ContractExt, StorageKey,
+};
+use near_sdk::{
+    collections::UnorderedSet, ext_contract, is_promise_success, log, near_bindgen, AccountId,
+    NearToken,
+};
 
 #[ext_contract(callbacks)]
 pub trait SelfCallbacks {

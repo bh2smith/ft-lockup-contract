@@ -1,8 +1,8 @@
-use crate::lockup::Lockup;
-use crate::schedule::Schedule;
-use crate::util::ZERO_NEAR;
-use near_sdk::json_types::{Base58CryptoHash, U128};
-use near_sdk::{near, AccountId, CryptoHash, NearToken};
+use crate::{lockup::Lockup, schedule::Schedule, util::ZERO_NEAR};
+use near_sdk::{
+    json_types::{Base58CryptoHash, U128},
+    near, AccountId, CryptoHash, NearToken,
+};
 
 #[near(serializers = [borsh, json])]
 #[derive(Debug, PartialEq, Clone)]

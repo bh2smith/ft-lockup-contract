@@ -1,9 +1,11 @@
 use borsh::BorshSerialize;
-use near_sdk::collections::{LookupMap, UnorderedSet, Vector};
-use near_sdk::json_types::U128;
 use near_sdk::{
-    assert_one_yocto, env, log, near, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
-    NearToken, PanicOnDefault, Promise, PromiseOrValue,
+    assert_one_yocto,
+    collections::{LookupMap, UnorderedSet, Vector},
+    env,
+    json_types::U128,
+    log, near, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas, NearToken, PanicOnDefault,
+    Promise, PromiseOrValue,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -17,10 +19,7 @@ pub mod termination;
 pub mod util;
 pub mod view;
 
-use crate::event::*;
-use crate::lockup::*;
-use crate::schedule::*;
-use crate::util::*;
+use crate::{event::*, lockup::*, schedule::*, util::*};
 
 pub type TokenAccountId = AccountId;
 

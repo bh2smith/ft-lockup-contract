@@ -172,6 +172,7 @@ impl Schedule {
         }
         unreachable!();
     }
+
     pub fn hash(&self) -> CryptoHash {
         let value_hash = env::sha256(borsh::to_vec(&self.0).unwrap().as_slice());
         let mut res = CryptoHash::default();

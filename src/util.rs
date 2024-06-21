@@ -1,5 +1,4 @@
-use near_sdk::json_types::U128;
-use near_sdk::{env, NearToken, Timestamp};
+use near_sdk::{env, json_types::U128, NearToken, Timestamp};
 
 pub(crate) const ZERO_NEAR: NearToken = NearToken::from_near(0);
 pub(crate) fn nano_to_sec(timestamp: Timestamp) -> u128 {
