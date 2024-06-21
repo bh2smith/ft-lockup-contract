@@ -4,7 +4,6 @@ use near_sdk::{env, json_types::U128, near, CryptoHash, NearToken};
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Checkpoint {
-    // TODO: USE BLOCK HEIGHT INSTEAD!
     /// The unix-timestamp in seconds since the epoch.
     pub timestamp: u128,
     pub balance: NearToken,
@@ -44,7 +43,6 @@ impl Schedule {
         ])
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
     pub fn new_unlocked(total_balance: NearToken) -> Self {
         Self::new_unlocked_since(total_balance, 1.into())
     }
@@ -141,6 +139,7 @@ impl Schedule {
             } else {
                 (start_timestamp.0 + 1).into()
             };
+            // Note that the zero balance schedule is technically "invalid" (via assert_valid)
             self.0 = Self::new_zero_balance_from_to(start_timestamp, finish_timestamp).0;
             return;
         }
@@ -183,3 +182,42 @@ impl Schedule {
         res
     }
 }
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ONE_NEAR: NearToken = NearToken::from_near(1);
+
+    #[test]
+    fn test_new_happy_paths() {
+        // new_zero_balance_from_to
+        let s = Schedule::new_zero_balance_from_to(1.into(), 2.into());
+        assert_eq!(s.0, vec![Checkpoint{timestamp: 1, balance: ZERO_NEAR}, Checkpoint{timestamp: 2, balance: ZERO_NEAR}]);
+
+        // new_unlocked_since
+        let s = Schedule::new_unlocked_since(ONE_NEAR, 2.into());
+        s.assert_valid(ONE_NEAR);
+        assert_eq!(s.0, vec![Checkpoint{timestamp: 1, balance: ZERO_NEAR}, Checkpoint{timestamp: 2, balance: ONE_NEAR}]);
+
+        // new_unlocked
+        let s = Schedule::new_unlocked(ONE_NEAR);
+        s.assert_valid(ONE_NEAR);
+        assert_eq!(s.0, vec![Checkpoint{timestamp: 0, balance: ZERO_NEAR}, Checkpoint{timestamp: 1, balance: ONE_NEAR}]);
+    }
+
+    #[test]
+    fn test_hash() {
+        let s = Schedule::new_zero_balance_from_to(1.into(), 2.into());
+
+        assert_eq!(s.hash(), CryptoHash::from([168, 164, 240, 83, 54, 140, 1, 48, 183, 69, 219, 112, 104, 138, 134, 92, 20, 112, 208, 172, 156, 163, 209, 3, 237, 87, 150, 161, 233, 181, 121, 157]));
+
+        let s = Schedule::new_unlocked_since(ONE_NEAR, 2.into());
+        assert_eq!(s.hash(), CryptoHash::from(  [204, 53, 93, 162, 50, 151, 41, 9, 233, 242, 255, 116, 241, 160, 255, 101, 195, 216, 169, 137, 123, 61, 196, 108, 81, 33, 151, 90, 226, 233, 207, 94]
+        ));
+
+        let s = Schedule::new_unlocked(ONE_NEAR);
+        assert_eq!(s.hash(), CryptoHash::from(  [19, 192, 155, 98, 188, 217, 56, 51, 184, 154, 37, 171, 141, 221, 211, 25, 193, 50, 133, 253, 55, 5, 231, 67, 100, 77, 139, 148, 174, 43, 12, 182]
+        ));
+    }
+}
+

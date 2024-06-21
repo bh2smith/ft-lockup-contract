@@ -43,8 +43,7 @@ pub struct Contract {
 
     /// account ids that can perform all actions:
     /// - manage deposit_whitelist
-    /// - manage drafts, draft_groups
-    /// - create lockups, terminate lockups, fund draft_groups
+    /// - create lockups, terminate lockups
     pub deposit_whitelist: UnorderedSet<AccountId>,
 }
 
