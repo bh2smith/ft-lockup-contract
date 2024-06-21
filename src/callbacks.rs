@@ -61,7 +61,7 @@ impl SelfCallbacks for Contract {
                 self.internal_save_account_lockups(&account_id, indices);
             }
             // TODO: Should we emit a single vector or all separate?
-            let _ = events.iter().for_each(|event| event.emit());
+            events.iter().for_each(|event| event.emit());
         } else {
             log!("Token transfer has failed. Refunding.");
             let mut modified = false;
