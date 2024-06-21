@@ -1,10 +1,10 @@
 use crate::event::{emit, FtLockup, FtLockupCreateLockup};
 use crate::lockup::LockupCreate;
 use crate::Contract;
+use crate::ContractExt;
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::json_types::U128;
 use near_sdk::{env, log, near, serde_json, AccountId, NearToken, PromiseOrValue};
-use crate::ContractExt;
 
 #[near(serializers = [json])]
 pub enum FtMessage {

@@ -1,8 +1,8 @@
-use near_sdk::{AccountId, near, NearToken};
-use near_sdk::json_types::U128;
 use crate::schedule::Schedule;
 use crate::termination::{TerminationConfig, VestingConditions};
 use crate::util::{current_timestamp_sec, ZERO_NEAR};
+use near_sdk::json_types::U128;
+use near_sdk::{near, AccountId, NearToken};
 
 pub type LockupIndex = u64;
 

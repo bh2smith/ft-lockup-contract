@@ -13,10 +13,7 @@ pub struct Checkpoint {
 pub struct Schedule(pub Vec<Checkpoint>);
 
 impl Schedule {
-    pub fn new_zero_balance_from_to(
-        start_timestamp: U128,
-        finish_timestamp: U128,
-    ) -> Self {
+    pub fn new_zero_balance_from_to(start_timestamp: U128, finish_timestamp: U128) -> Self {
         assert!(finish_timestamp > start_timestamp, "Invariant");
 
         Self(vec![
@@ -77,7 +74,8 @@ impl Schedule {
     pub fn assert_valid_termination_schedule(&self, termination_schedule: &Schedule) {
         for checkpoint in &self.0 {
             assert!(
-                checkpoint.balance <= termination_schedule.unlocked_balance(checkpoint.timestamp.into()),
+                checkpoint.balance
+                    <= termination_schedule.unlocked_balance(checkpoint.timestamp.into()),
                 "The lockup schedule is ahead of the termination schedule at timestamp {}",
                 checkpoint.timestamp
             );
@@ -161,7 +159,10 @@ impl Schedule {
                     + ((timestamp_diff * required_balance_diff + (balance_diff - 1))
                         / balance_diff);
                 // Ensure this funky math can be cast back to u64:
-                assert!(new_timestamp <= u64::MAX as u128, "timestamp arithmetic mixed with balances");
+                assert!(
+                    new_timestamp <= u64::MAX as u128,
+                    "timestamp arithmetic mixed with balances"
+                );
                 self.0.push(Checkpoint {
                     timestamp: new_timestamp,
                     balance: new_total_balance,

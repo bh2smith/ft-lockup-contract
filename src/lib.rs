@@ -1,3 +1,4 @@
+use borsh::BorshSerialize;
 use near_sdk::collections::{LookupMap, UnorderedSet, Vector};
 use near_sdk::json_types::U128;
 use near_sdk::{
@@ -5,7 +6,6 @@ use near_sdk::{
     NearToken, PanicOnDefault, Promise, PromiseOrValue,
 };
 use std::collections::{HashMap, HashSet};
-use borsh::BorshSerialize;
 
 pub mod callbacks;
 pub mod event;

@@ -1,11 +1,11 @@
-use near_sdk::{AccountId, near, NearToken};
-use near_sdk::json_types::{Base58CryptoHash, U128};
-use crate::{Contract, VERSION};
 use crate::lockup::{Lockup, LockupCreate, LockupIndex};
 use crate::schedule::Schedule;
 use crate::termination::{TerminationConfig, VestingConditions};
 use crate::util::{current_timestamp_sec, ZERO_NEAR};
 use crate::ContractExt;
+use crate::{Contract, VERSION};
+use near_sdk::json_types::{Base58CryptoHash, U128};
+use near_sdk::{near, AccountId, NearToken};
 
 #[near(serializers = [borsh, json])]
 #[derive(Debug)]
