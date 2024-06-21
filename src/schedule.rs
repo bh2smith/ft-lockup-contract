@@ -1,16 +1,14 @@
 use crate::*;
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
+#[near(serializers = [borsh, json])]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Checkpoint {
     /// The unix-timestamp in seconds since the epoch.
     pub timestamp: TimestampSec,
     pub balance: NearToken,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Schedule(pub Vec<Checkpoint>);
 
 impl Schedule {

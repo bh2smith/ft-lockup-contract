@@ -10,7 +10,7 @@ pub struct LockupClaim {
     pub is_final: bool,
 }
 
-#[derive(BorshDeserialize, BorshSerialize)]
+#[near(serializers = [borsh, json])]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Clone))]
 pub struct Lockup {
     pub account_id: AccountId,

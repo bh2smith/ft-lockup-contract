@@ -1,17 +1,15 @@
 use crate::*;
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub enum VestingConditions {
     SameAsLockupSchedule,
     Hash(Base58CryptoHash),
     Schedule(Schedule),
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Clone))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TerminationConfig {
     /// The account ID who paid for the lockup creation
     /// and will receive unvested balance upon termination

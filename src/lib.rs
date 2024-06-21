@@ -1,14 +1,12 @@
-use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedSet, Vector};
 use near_sdk::json_types::{Base58CryptoHash, U128};
 use near_sdk::serde::{Deserialize, Serialize};
 use near_sdk::{
-    assert_one_yocto, env, log, near_bindgen, serde_json, AccountId, BorshStorageKey, CryptoHash,
-    Gas, NearToken, PanicOnDefault, Promise, PromiseOrValue, Timestamp,
+    assert_one_yocto, env, log, near, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
+    NearToken, PanicOnDefault, Promise, PromiseOrValue, Timestamp,
 };
 use std::collections::{HashMap, HashSet};
-
 pub mod callbacks;
 pub mod event;
 pub mod ft_token_receiver;
@@ -26,6 +24,7 @@ use crate::termination::*;
 use crate::util::*;
 
 pub type TimestampSec = u128;
+
 pub type TokenAccountId = AccountId;
 
 pub const PACKAGE_NAME: &str = env!("CARGO_PKG_NAME");
@@ -36,14 +35,14 @@ const GAS_FOR_AFTER_FT_TRANSFER: Gas = Gas::from_gas(20_000_000_000_000);
 
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 
-#[near_bindgen]
-#[derive(BorshDeserialize, BorshSerialize, PanicOnDefault)]
+#[near(contract_state, serializers = [borsh])]
+#[derive(PanicOnDefault)]
 pub struct Contract {
-    pub token_account_id: TokenAccountId,
+    pub token_account_id: AccountId,
 
     pub lockups: Vector<Lockup>,
 
-    pub account_lockups: LookupMap<AccountId, HashSet<LockupIndex>>,
+    pub account_lockups: LookupMap<AccountId, UnorderedSet<LockupIndex>>,
 
     /// account ids that can perform all actions:
     /// - manage deposit_whitelist
@@ -59,7 +58,7 @@ pub(crate) enum StorageKey {
     DepositWhitelist,
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {
     #[init]
     pub fn new(token_account_id: AccountId, deposit_whitelist: Vec<AccountId>) -> Self {
@@ -211,7 +210,7 @@ impl Contract {
             let mut indices = self
                 .account_lockups
                 .get(&lockup_account_id)
-                .unwrap_or_default();
+                .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
             indices.remove(&lockup_index);
             self.internal_save_account_lockups(&lockup_account_id, indices);
         }

@@ -1,13 +1,17 @@
-use crate::*;
+use crate::event::{emit, FtLockup, FtLockupCreateLockup};
+use crate::lockup::LockupCreate;
+use crate::Contract;
+use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
+use near_sdk::json_types::U128;
+use near_sdk::{env, log, near, serde_json, AccountId, NearToken, PromiseOrValue};
+use crate::ContractExt;
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[serde(untagged)]
+#[near(serializers = [json])]
 pub enum FtMessage {
     LockupCreate(LockupCreate),
 }
 
-#[near_bindgen]
+#[near]
 impl FungibleTokenReceiver for Contract {
     fn ft_on_transfer(
         &mut self,

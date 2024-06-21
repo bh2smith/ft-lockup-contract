@@ -14,8 +14,8 @@ impl Contract {
         let mut indices = self
             .account_lockups
             .get(&lockup.account_id)
-            .unwrap_or_default();
-        indices.insert(index);
+            .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
+        indices.insert(&index);
         self.internal_save_account_lockups(&lockup.account_id, indices);
         index
     }
@@ -23,7 +23,7 @@ impl Contract {
     pub(crate) fn internal_save_account_lockups(
         &mut self,
         account_id: &AccountId,
-        indices: HashSet<LockupIndex>,
+        indices: UnorderedSet<LockupIndex>,
     ) {
         if indices.is_empty() {
             self.account_lockups.remove(account_id);
@@ -38,8 +38,8 @@ impl Contract {
     ) -> Vec<(LockupIndex, Lockup)> {
         self.account_lockups
             .get(account_id)
-            .unwrap_or_default()
-            .into_iter()
+            .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups))
+            .iter()
             .map(|lockup_index| (lockup_index, self.lockups.get(lockup_index as _).unwrap()))
             .collect()
     }
@@ -49,7 +49,10 @@ impl Contract {
         account_id: &AccountId,
         lockup_ids: &HashSet<LockupIndex>,
     ) -> Vec<(LockupIndex, Lockup)> {
-        let account_lockup_ids = self.account_lockups.get(account_id).unwrap_or_default();
+        let account_lockup_ids = self
+            .account_lockups
+            .get(account_id)
+            .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
 
         lockup_ids
             .iter()

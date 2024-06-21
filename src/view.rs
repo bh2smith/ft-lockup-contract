@@ -79,7 +79,7 @@ impl From<LockupCreate> for LockupCreateView {
     }
 }
 
-#[near_bindgen]
+#[near]
 impl Contract {
     pub fn get_token_account_id(&self) -> AccountId {
         self.token_account_id.clone()

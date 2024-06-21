@@ -1,9 +1,11 @@
 use crate::event::{emit, FtLockup, FtLockupClaimLockup, FtLockupCreateLockup};
 use crate::lockup::{Lockup, LockupClaim};
 use crate::util::{current_timestamp_sec, ZERO_NEAR};
-use crate::Contract;
-use crate::ContractExt;
+use crate::{Contract, StorageKey};
+use near_sdk::collections::UnorderedSet;
 use near_sdk::{ext_contract, is_promise_success, log, near_bindgen, AccountId, NearToken};
+use crate::ContractExt;
+
 #[ext_contract(callbacks)]
 pub trait SelfCallbacks {
     fn after_ft_transfer(
@@ -45,7 +47,10 @@ impl SelfCallbacks for Contract {
                 events.push(event);
             }
             if !remove_indices.is_empty() {
-                let mut indices = self.account_lockups.get(&account_id).unwrap_or_default();
+                let mut indices = self
+                    .account_lockups
+                    .get(&account_id)
+                    .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
                 for index in remove_indices {
                     indices.remove(&index);
                 }
@@ -55,14 +60,17 @@ impl SelfCallbacks for Contract {
         } else {
             log!("Token transfer has failed. Refunding.");
             let mut modified = false;
-            let mut indices = self.account_lockups.get(&account_id).unwrap_or_default();
+            let mut indices = self
+                .account_lockups
+                .get(&account_id)
+                .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
             for LockupClaim {
                 index,
                 claim_amount,
                 ..
             } in lockup_claims
             {
-                if indices.insert(index) {
+                if indices.insert(&index) {
                     modified = true;
                 }
                 let mut lockup = self.lockups.get(index as _).unwrap();
