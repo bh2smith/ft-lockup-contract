@@ -1,8 +1,6 @@
 use crate::{lockup::LockupCreate, Contract, ContractExt};
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
-use near_sdk::{
-    env, json_types::U128, near, AccountId, PromiseOrValue,
-};
+use near_sdk::{env, json_types::U128, near, AccountId, PromiseOrValue};
 
 #[near(serializers = [json])]
 pub enum FtMessage {
@@ -18,7 +16,8 @@ impl FungibleTokenReceiver for Contract {
         _msg: String,
     ) -> PromiseOrValue<U128> {
         assert_eq!(
-            env::predecessor_account_id(), self.token_account_id,
+            env::predecessor_account_id(),
+            self.token_account_id,
             "Invalid token ID"
         );
         self.assert_deposit_whitelist(&sender_id);
@@ -43,16 +42,14 @@ impl FungibleTokenReceiver for Contract {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use near_sdk::{
-        test_utils::VMContextBuilder,
-        testing_env
+        test_utils::{accounts, VMContextBuilder},
+        testing_env,
+        PromiseOrValue::Promise,
     };
-    use near_sdk::PromiseOrValue::Promise;
-    use near_sdk::test_utils::accounts;
 
     fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
         let mut builder = VMContextBuilder::new();
