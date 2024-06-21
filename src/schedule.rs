@@ -69,26 +69,6 @@ impl Schedule {
         );
     }
 
-    /// Verifies that this schedule is ahead of the given termination schedule at any point of time.
-    /// Assumes they have equal total balance and both schedules are valid.
-    pub fn assert_valid_termination_schedule(&self, termination_schedule: &Schedule) {
-        for checkpoint in &self.0 {
-            assert!(
-                checkpoint.balance
-                    <= termination_schedule.unlocked_balance(checkpoint.timestamp.into()),
-                "The lockup schedule is ahead of the termination schedule at timestamp {}",
-                checkpoint.timestamp
-            );
-        }
-        for checkpoint in &termination_schedule.0 {
-            assert!(
-                checkpoint.balance >= self.unlocked_balance(checkpoint.timestamp.into()),
-                "The lockup schedule is ahead of the termination schedule at timestamp {}",
-                checkpoint.timestamp
-            );
-        }
-    }
-
     pub fn unlocked_balance(&self, current_timestamp: U128) -> NearToken {
         // Using binary search by time to find the current checkpoint.
         let index = match self
@@ -126,8 +106,17 @@ impl Schedule {
         self.0.last().unwrap().balance
     }
 
+    pub fn hash(&self) -> CryptoHash {
+        let value_hash = env::sha256(borsh::to_vec(&self.0).unwrap().as_slice());
+        let mut res = CryptoHash::default();
+        res.copy_from_slice(&value_hash);
+        res
+    }
+
     /// Terminates the lockup schedule earlier.
     /// Assumes new_total_balance is not greater than the current total balance.
+    /// This method is unaware of the vested tokens.
+    /// External logic is responsible for preserving vested tokens!
     pub fn terminate(&mut self, new_total_balance: NearToken, finish_timestamp: U128) {
         if new_total_balance == ZERO_NEAR {
             // finish_timestamp is a hint, only used for fully unvested schedules
@@ -174,12 +163,24 @@ impl Schedule {
         unreachable!();
     }
 
-    pub fn hash(&self) -> CryptoHash {
-        let value_hash = env::sha256(borsh::to_vec(&self.0).unwrap().as_slice());
-        let mut res = CryptoHash::default();
-        res.copy_from_slice(&value_hash);
-
-        res
+    /// Verifies that this schedule is ahead of the given termination schedule at any point of time.
+    /// Assumes they have equal total balance and both schedules are valid.
+    pub fn assert_valid_termination_schedule(&self, termination_schedule: &Schedule) {
+        for checkpoint in &self.0 {
+            assert!(
+                checkpoint.balance
+                    <= termination_schedule.unlocked_balance(checkpoint.timestamp.into()),
+                "The lockup schedule is ahead of the termination schedule at timestamp {}",
+                checkpoint.timestamp
+            );
+        }
+        for checkpoint in &termination_schedule.0 {
+            assert!(
+                checkpoint.balance >= self.unlocked_balance(checkpoint.timestamp.into()),
+                "The lockup schedule is ahead of the termination schedule at timestamp {}",
+                checkpoint.timestamp
+            );
+        }
     }
 }
 #[cfg(test)]
@@ -340,6 +341,7 @@ mod tests {
     fn test_unlocked_balance() {
         // Simple linear vesting between two checkpoints.
         let now = 100;
+        let two_near = NearToken::from_near(2);
         let s = Schedule(vec![
             Checkpoint {
                 timestamp: now - 50,
@@ -347,9 +349,61 @@ mod tests {
             },
             Checkpoint {
                 timestamp: now + 50,
-                balance: NearToken::from_near(2),
+                balance: two_near,
             },
         ]);
-        assert_eq!(s.unlocked_balance(now.into()), ONE_NEAR)
+        assert_eq!(
+            s.unlocked_balance(75.into()),
+            NearToken::from_yoctonear(ONE_NEAR.as_yoctonear() / 2)
+        );
+        assert_eq!(s.unlocked_balance(now.into()), ONE_NEAR);
+        // SLightly more complex example.
+        let s = Schedule(vec![
+            Checkpoint {
+                timestamp: 50,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 100,
+                balance: two_near,
+            },
+            Checkpoint {
+                timestamp: 200,
+                balance: NearToken::from_near(4),
+            },
+        ]);
+        assert_eq!(s.unlocked_balance(50.into()), ZERO_NEAR);
+        assert_eq!(s.unlocked_balance(100.into()), two_near);
+        assert_eq!(s.unlocked_balance(150.into()), NearToken::from_near(3));
+        assert_eq!(s.unlocked_balance(200.into()), NearToken::from_near(4));
+    }
+
+    #[test]
+    fn test_termination() {
+        let two_near = NearToken::from_near(2);
+        let four_near = NearToken::from_near(4);
+        let mut s = Schedule(vec![
+            Checkpoint {
+                timestamp: 50,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 100,
+                balance: two_near,
+            },
+            Checkpoint {
+                timestamp: 200,
+                balance: four_near,
+            },
+        ]);
+        s.terminate(ONE_NEAR, 100.into());
+        assert_eq!(s.unlocked_balance(50.into()), ZERO_NEAR);
+        assert_eq!(s.unlocked_balance(100.into()), ONE_NEAR);
+        assert_eq!(s.unlocked_balance(200.into()), ONE_NEAR);
+
+        s.terminate(ZERO_NEAR, 100.into());
+        assert_eq!(s.unlocked_balance(50.into()), ZERO_NEAR);
+        assert_eq!(s.unlocked_balance(100.into()), ZERO_NEAR);
+        assert_eq!(s.unlocked_balance(200.into()), ZERO_NEAR);
     }
 }
