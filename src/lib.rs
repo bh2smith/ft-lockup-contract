@@ -42,37 +42,37 @@ pub struct Contract {
     pub account_lockups: LookupMap<AccountId, UnorderedSet<LockupIndex>>,
 
     /// account ids that can perform all actions:
-    /// - manage deposit_whitelist
+    /// - manage deposit_allowlist
     /// - create lockups, terminate lockups
-    pub deposit_whitelist: UnorderedSet<AccountId>,
+    pub deposit_allowlist: UnorderedSet<AccountId>,
 }
 
 #[derive(BorshStorageKey, BorshSerialize)]
 pub(crate) enum StorageKey {
     Lockups,
     AccountLockups,
-    DepositWhitelist,
+    DepositAllowlist,
 }
 
 #[near]
 impl Contract {
     #[init]
-    pub fn new(token_account_id: AccountId, deposit_whitelist: Vec<AccountId>) -> Self {
-        let mut deposit_whitelist_set = UnorderedSet::new(StorageKey::DepositWhitelist);
-        deposit_whitelist_set.extend(deposit_whitelist.clone());
+    pub fn new(token_account_id: AccountId, deposit_allowlist: Vec<AccountId>) -> Self {
+        let mut deposit_allowlist_set = UnorderedSet::new(StorageKey::DepositAllowlist);
+        deposit_allowlist_set.extend(deposit_allowlist.clone());
         FtLockupNew {
             token_account_id: token_account_id.clone(),
         }
         .emit();
-        FtLockupAddToDepositWhitelist {
-            account_ids: deposit_whitelist,
+        FtLockupAddToDepositallowlist {
+            account_ids: deposit_allowlist,
         }
         .emit();
         Self {
             lockups: Vector::new(StorageKey::Lockups),
             account_lockups: LookupMap::new(StorageKey::AccountLockups),
             token_account_id,
-            deposit_whitelist: deposit_whitelist_set,
+            deposit_allowlist: deposit_allowlist_set,
         }
     }
 
@@ -185,7 +185,7 @@ impl Contract {
         termination_timestamp: Option<U128>,
     ) -> PromiseOrValue<NearToken> {
         assert_one_yocto();
-        self.assert_deposit_whitelist(&env::predecessor_account_id());
+        self.assert_deposit_allowlist(&env::predecessor_account_id());
         let mut lockup = self
             .lockups
             .get(lockup_index as _)
@@ -246,45 +246,45 @@ impl Contract {
 
     // preserving both options for API compatibility
     #[payable]
-    pub fn add_to_deposit_whitelist(
+    pub fn add_to_deposit_allowlist(
         &mut self,
         account_id: Option<AccountId>,
         account_ids: Option<Vec<AccountId>>,
     ) {
         assert_one_yocto();
-        self.assert_deposit_whitelist(&env::predecessor_account_id());
+        self.assert_deposit_allowlist(&env::predecessor_account_id());
         let account_ids = if let Some(account_ids) = account_ids {
             account_ids
         } else {
             vec![account_id.expect("expected either account_id or account_ids")]
         };
         for account_id in &account_ids {
-            self.deposit_whitelist.insert(account_id);
+            self.deposit_allowlist.insert(account_id);
         }
-        FtLockupAddToDepositWhitelist { account_ids }.emit()
+        FtLockupAddToDepositallowlist { account_ids }.emit()
     }
 
     // preserving both options for API compatibility
     #[payable]
-    pub fn remove_from_deposit_whitelist(
+    pub fn remove_from_deposit_allowlist(
         &mut self,
         account_id: Option<AccountId>,
         account_ids: Option<Vec<AccountId>>,
     ) {
         assert_one_yocto();
-        self.assert_deposit_whitelist(&env::predecessor_account_id());
+        self.assert_deposit_allowlist(&env::predecessor_account_id());
         let account_ids = if let Some(account_ids) = account_ids {
             account_ids
         } else {
             vec![account_id.expect("expected either account_id or account_ids")]
         };
         for account_id in &account_ids {
-            self.deposit_whitelist.remove(account_id);
+            self.deposit_allowlist.remove(account_id);
         }
         assert!(
-            !self.deposit_whitelist.is_empty(),
-            "cannot remove all accounts from deposit whitelist",
+            !self.deposit_allowlist.is_empty(),
+            "cannot remove all accounts from deposit allowlist",
         );
-        FtLockupRemoveFromDepositWhitelist { account_ids }.emit()
+        FtLockupRemoveFromDepositallowlist { account_ids }.emit()
     }
 }

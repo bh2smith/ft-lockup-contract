@@ -126,8 +126,8 @@ impl Contract {
             .collect()
     }
 
-    pub fn get_deposit_whitelist(&self) -> Vec<AccountId> {
-        self.deposit_whitelist.to_vec()
+    pub fn get_deposit_allowlist(&self) -> Vec<AccountId> {
+        self.deposit_allowlist.to_vec()
     }
 
     pub fn hash_schedule(&self, schedule: Schedule) -> Base58CryptoHash {

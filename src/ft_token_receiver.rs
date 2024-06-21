@@ -20,7 +20,7 @@ impl FungibleTokenReceiver for Contract {
             self.token_account_id,
             "Invalid token ID"
         );
-        self.assert_deposit_whitelist(&sender_id);
+        self.assert_deposit_allowlist(&sender_id);
         // let amount = NearToken::from_yoctonear(amount.0);
         // TODO Understand why this:
         // let ft_message: FtMessage = serde_json::from_str(&msg).unwrap();
@@ -86,8 +86,8 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "Not in deposit whitelist")]
-    fn test_ft_on_transfer_not_on_whitelist() {
+    #[should_panic(expected = "Not in deposit allowlist")]
+    fn test_ft_on_transfer_not_on_allowlist() {
         let context = get_context(accounts(1));
         testing_env!(context.build());
         let mut contract = Contract::new(accounts(1), vec![]);

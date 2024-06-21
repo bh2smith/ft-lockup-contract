@@ -10,22 +10,22 @@ pub struct FtLockupNew {
 }
 
 #[event(version = "1.0.0", standard = "ft-lockup")]
-pub struct FtLockupAddToDepositWhitelist {
+pub struct FtLockupAddToDepositallowlist {
     pub account_ids: Vec<AccountId>,
 }
 
 #[event(version = "1.0.0", standard = "ft-lockup")]
-pub struct FtLockupRemoveFromDepositWhitelist {
+pub struct FtLockupRemoveFromDepositallowlist {
     pub account_ids: Vec<AccountId>,
 }
 
 #[event(version = "1.0.0", standard = "ft-lockup")]
-pub struct FtLockupAddToDraftOperatorsWhitelist {
+pub struct FtLockupAddToDraftOperatorsallowlist {
     pub account_ids: Vec<AccountId>,
 }
 
 #[event(version = "1.0.0", standard = "ft-lockup")]
-pub struct FtLockupRemoveFromDraftOperatorsWhitelist {
+pub struct FtLockupRemoveFromDraftOperatorsallowlist {
     pub account_ids: Vec<AccountId>,
 }
 
@@ -112,39 +112,39 @@ mod tests {
     }
 
     #[test]
-    fn test_ft_lockup_add_to_deposit_whitelist() {
+    fn test_ft_lockup_add_to_deposit_allowlist() {
         testing_env!(get_context());
 
-        let account_ids: Vec<AccountId> = vec!["alice.near", "bob.near"]
+        let account_ids: Vec<AccountId> = ["alice.near", "bob.near"]
             .iter()
             .map(|&x| x.parse().unwrap())
             .collect();
 
-        FtLockupAddToDepositWhitelist { account_ids }.emit();
+        FtLockupAddToDepositallowlist { account_ids }.emit();
         let expected_log = json!({
             "standard": PACKAGE_NAME,
             "version": VERSION,
-            "event": "ft_lockup_add_to_deposit_whitelist",
+            "event": "ft_lockup_add_to_deposit_allowlist",
             "data": { "account_ids": ["alice.near", "bob.near"] },
         });
         assert_equal_logs(expected_log, &test_utils::get_logs()[0]);
     }
 
     #[test]
-    fn test_ft_lockup_remove_from_deposit_whitelist() {
+    fn test_ft_lockup_remove_from_deposit_allowlist() {
         testing_env!(get_context());
 
-        let account_ids: Vec<AccountId> = vec!["alice.near", "bob.near"]
+        let account_ids: Vec<AccountId> = ["alice.near", "bob.near"]
             .iter()
             .map(|&x| x.parse().unwrap())
             .collect();
-        FtLockupRemoveFromDepositWhitelist { account_ids }.emit();
+        FtLockupRemoveFromDepositallowlist { account_ids }.emit();
 
         assert_equal_logs(
             json!({
                 "standard": PACKAGE_NAME,
                 "version": VERSION,
-                "event": "ft_lockup_remove_from_deposit_whitelist",
+                "event": "ft_lockup_remove_from_deposit_allowlist",
                 "data": { "account_ids": ["alice.near", "bob.near"] },
             }),
             &test_utils::get_logs()[0],

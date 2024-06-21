@@ -6,10 +6,10 @@ use near_sdk::{collections::UnorderedSet, AccountId};
 use std::collections::HashSet;
 
 impl Contract {
-    pub(crate) fn assert_deposit_whitelist(&self, account_id: &AccountId) {
+    pub(crate) fn assert_deposit_allowlist(&self, account_id: &AccountId) {
         assert!(
-            self.deposit_whitelist.contains(account_id),
-            "Not in deposit whitelist"
+            self.deposit_allowlist.contains(account_id),
+            "Not in deposit allowlist"
         );
     }
 
