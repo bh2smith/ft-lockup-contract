@@ -48,11 +48,11 @@ impl Schedule {
     }
 
     pub fn assert_valid(&self, total_balance: NearToken) {
-        assert!(self.0.len() >= 2, "At least two checkpoints is required");
+        assert!(self.0.len() >= 2, "at least two checkpoints are required");
         assert_eq!(
             self.0.first().unwrap().balance,
             ZERO_NEAR,
-            "The first checkpoint balance should be 0"
+            "first checkpoint balance must be 0"
         );
         for i in 1..self.0.len() {
             assert!(self.0[i - 1].timestamp < self.0[i].timestamp, "The timestamp of checkpoint #{} should be less than the timestamp of the next checkpoint", i - 1);
@@ -60,12 +60,12 @@ impl Schedule {
         }
         assert!(
             self.total_balance() > ZERO_NEAR,
-            "expected total balance to be positive",
+            "total balance must be positive",
         );
         assert_eq!(
             self.total_balance(),
             total_balance,
-            "The schedule's total balance doesn't match the transferred balance"
+            "expected total balance doesn't match transferred balance"
         );
     }
 
@@ -192,32 +192,164 @@ mod tests {
     fn test_new_happy_paths() {
         // new_zero_balance_from_to
         let s = Schedule::new_zero_balance_from_to(1.into(), 2.into());
-        assert_eq!(s.0, vec![Checkpoint{timestamp: 1, balance: ZERO_NEAR}, Checkpoint{timestamp: 2, balance: ZERO_NEAR}]);
+        assert_eq!(
+            s.0,
+            vec![
+                Checkpoint {
+                    timestamp: 1,
+                    balance: ZERO_NEAR
+                },
+                Checkpoint {
+                    timestamp: 2,
+                    balance: ZERO_NEAR
+                }
+            ]
+        );
 
         // new_unlocked_since
         let s = Schedule::new_unlocked_since(ONE_NEAR, 2.into());
         s.assert_valid(ONE_NEAR);
-        assert_eq!(s.0, vec![Checkpoint{timestamp: 1, balance: ZERO_NEAR}, Checkpoint{timestamp: 2, balance: ONE_NEAR}]);
+        assert_eq!(
+            s.0,
+            vec![
+                Checkpoint {
+                    timestamp: 1,
+                    balance: ZERO_NEAR
+                },
+                Checkpoint {
+                    timestamp: 2,
+                    balance: ONE_NEAR
+                }
+            ]
+        );
 
         // new_unlocked
         let s = Schedule::new_unlocked(ONE_NEAR);
         s.assert_valid(ONE_NEAR);
-        assert_eq!(s.0, vec![Checkpoint{timestamp: 0, balance: ZERO_NEAR}, Checkpoint{timestamp: 1, balance: ONE_NEAR}]);
+        assert_eq!(
+            s.0,
+            vec![
+                Checkpoint {
+                    timestamp: 0,
+                    balance: ZERO_NEAR
+                },
+                Checkpoint {
+                    timestamp: 1,
+                    balance: ONE_NEAR
+                }
+            ]
+        );
     }
 
     #[test]
     fn test_hash() {
-        let s = Schedule::new_zero_balance_from_to(1.into(), 2.into());
+        assert_eq!(
+            Schedule::new_zero_balance_from_to(1.into(), 2.into()).hash(),
+            CryptoHash::from([
+                168, 164, 240, 83, 54, 140, 1, 48, 183, 69, 219, 112, 104, 138, 134, 92, 20, 112,
+                208, 172, 156, 163, 209, 3, 237, 87, 150, 161, 233, 181, 121, 157
+            ])
+        );
 
-        assert_eq!(s.hash(), CryptoHash::from([168, 164, 240, 83, 54, 140, 1, 48, 183, 69, 219, 112, 104, 138, 134, 92, 20, 112, 208, 172, 156, 163, 209, 3, 237, 87, 150, 161, 233, 181, 121, 157]));
+        assert_eq!(
+            Schedule::new_unlocked_since(ONE_NEAR, 2.into()).hash(),
+            CryptoHash::from([
+                204, 53, 93, 162, 50, 151, 41, 9, 233, 242, 255, 116, 241, 160, 255, 101, 195, 216,
+                169, 137, 123, 61, 196, 108, 81, 33, 151, 90, 226, 233, 207, 94
+            ])
+        );
 
-        let s = Schedule::new_unlocked_since(ONE_NEAR, 2.into());
-        assert_eq!(s.hash(), CryptoHash::from(  [204, 53, 93, 162, 50, 151, 41, 9, 233, 242, 255, 116, 241, 160, 255, 101, 195, 216, 169, 137, 123, 61, 196, 108, 81, 33, 151, 90, 226, 233, 207, 94]
-        ));
+        assert_eq!(
+            Schedule::new_unlocked(ONE_NEAR).hash(),
+            CryptoHash::from([
+                19, 192, 155, 98, 188, 217, 56, 51, 184, 154, 37, 171, 141, 221, 211, 25, 193, 50,
+                133, 253, 55, 5, 231, 67, 100, 77, 139, 148, 174, 43, 12, 182
+            ])
+        );
+    }
 
-        let s = Schedule::new_unlocked(ONE_NEAR);
-        assert_eq!(s.hash(), CryptoHash::from(  [19, 192, 155, 98, 188, 217, 56, 51, 184, 154, 37, 171, 141, 221, 211, 25, 193, 50, 133, 253, 55, 5, 231, 67, 100, 77, 139, 148, 174, 43, 12, 182]
-        ));
+    #[test]
+    fn test_assert_valid_success() {
+        let two_near = NearToken::from_near(2);
+        let schedule = Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 10,
+                balance: ONE_NEAR,
+            },
+            Checkpoint {
+                timestamp: 20,
+                balance: NearToken::from_near(2),
+            },
+        ]);
+        schedule.assert_valid(two_near)
+    }
+
+    #[test]
+    #[should_panic = "At least two checkpoints are required"]
+    fn test_assert_valid_fail_num_checkpoints() {
+        Schedule(vec![Checkpoint {
+            timestamp: 0,
+            balance: ZERO_NEAR,
+        }])
+        .assert_valid(ZERO_NEAR)
+    }
+
+    #[test]
+    #[should_panic = "First checkpoint balance must be 0"]
+    fn test_assert_valid_fail_zero_start() {
+        Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ONE_NEAR,
+            },
+            Checkpoint {
+                timestamp: 0,
+                balance: ONE_NEAR,
+            },
+        ])
+        .assert_valid(ZERO_NEAR)
+    }
+
+    #[test]
+    #[should_panic = "total balance must be positive"]
+    fn test_assert_valid_fail_positive_total() {
+        Schedule::new_zero_balance_from_to(1.into(), 2.into()).assert_valid(ZERO_NEAR)
+    }
+
+    #[test]
+    #[should_panic = "expected total balance doesn't match transferred balance"]
+    fn test_assert_valid_fail_total_balance() {
+        Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 1,
+                balance: ONE_NEAR,
+            },
+        ])
+        .assert_valid(ZERO_NEAR)
+    }
+
+    #[test]
+    fn test_unlocked_balance() {
+        // Simple linear vesting between two checkpoints.
+        let now = 100;
+        let s = Schedule(vec![
+            Checkpoint {
+                timestamp: now - 50,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: now + 50,
+                balance: NearToken::from_near(2),
+            },
+        ]);
+        assert_eq!(s.unlocked_balance(now.into()), ONE_NEAR)
     }
 }
-
