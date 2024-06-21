@@ -11,7 +11,7 @@ use near_sdk_contract_tools::standard::nep297::Event;
 use std::collections::HashMap;
 
 pub mod callbacks;
-pub mod event;
+pub mod events;
 pub mod ft_token_receiver;
 pub mod internal;
 pub mod lockup;
@@ -20,7 +20,7 @@ pub mod termination;
 pub mod util;
 pub mod view;
 
-use crate::{event::*, lockup::*, schedule::*, util::*};
+use crate::{events::*, lockup::*, schedule::*, util::*};
 
 pub type TokenAccountId = AccountId;
 
