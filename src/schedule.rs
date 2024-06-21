@@ -1,4 +1,6 @@
-use crate::*;
+use crate::util::ZERO_NEAR;
+use near_sdk::{env, json_types::U128, near, CryptoHash, NearToken};
+
 #[near(serializers = [borsh, json])]
 #[derive(Clone, Debug, PartialEq)]
 pub struct Checkpoint {

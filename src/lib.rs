@@ -4,10 +4,10 @@ use near_sdk::{
     collections::{LookupMap, UnorderedSet, Vector},
     env,
     json_types::U128,
-    log, near, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas, NearToken, PanicOnDefault,
-    Promise, PromiseOrValue,
+    log, near, serde_json, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
+    PromiseOrValue,
 };
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 pub mod callbacks;
 pub mod event;

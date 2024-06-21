@@ -1,4 +1,9 @@
-use crate::*;
+use crate::{
+    lockup::{Lockup, LockupIndex},
+    Contract, StorageKey,
+};
+use near_sdk::{collections::UnorderedSet, AccountId};
+use std::collections::HashSet;
 
 impl Contract {
     pub(crate) fn assert_deposit_whitelist(&self, account_id: &AccountId) {
@@ -62,7 +67,7 @@ impl Contract {
                     "lockup not found for account: {}",
                     lockup_index,
                 );
-                let lockup = self.lockups.get(lockup_index as _).unwrap();
+                let lockup = self.lockups.get(lockup_index).unwrap();
                 (lockup_index, lockup)
             })
             .collect()
