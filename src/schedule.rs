@@ -177,7 +177,7 @@ impl Schedule {
         for checkpoint in &termination_schedule.0 {
             assert!(
                 checkpoint.balance >= self.unlocked_balance(checkpoint.timestamp.into()),
-                "The lockup schedule is ahead of the termination schedule at timestamp {}",
+                "The termination schedule is ahead of the lockup schedule at timestamp {}",
                 checkpoint.timestamp
             );
         }
@@ -290,7 +290,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "At least two checkpoints are required"]
+    #[should_panic = "at least two checkpoints are required"]
     fn test_assert_valid_fail_num_checkpoints() {
         Schedule(vec![Checkpoint {
             timestamp: 0,
@@ -300,7 +300,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic = "First checkpoint balance must be 0"]
+    #[should_panic = "first checkpoint balance must be 0"]
     fn test_assert_valid_fail_zero_start() {
         Schedule(vec![
             Checkpoint {
@@ -405,5 +405,139 @@ mod tests {
         assert_eq!(s.unlocked_balance(50.into()), ZERO_NEAR);
         assert_eq!(s.unlocked_balance(100.into()), ZERO_NEAR);
         assert_eq!(s.unlocked_balance(200.into()), ZERO_NEAR);
+    }
+
+    #[test]
+    fn test_valid_termination_schedule_passes() {
+        let two_near = NearToken::from_near(2);
+        let four_near = NearToken::from_near(4);
+        let s = Schedule(vec![
+            Checkpoint {
+                timestamp: 50,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 100,
+                balance: two_near,
+            },
+            Checkpoint {
+                timestamp: 200,
+                balance: four_near,
+            },
+        ]);
+        s.assert_valid_termination_schedule(&Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 200,
+                balance: four_near,
+            },
+        ]));
+    }
+
+    #[test]
+    #[should_panic = "The lockup schedule is ahead of the termination schedule at timestamp 200"]
+    fn test_valid_termination_schedule_panics() {
+        let two_near = NearToken::from_near(2);
+        let four_near = NearToken::from_near(4);
+        let s = Schedule(vec![
+            Checkpoint {
+                timestamp: 50,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 100,
+                balance: two_near,
+            },
+            Checkpoint {
+                timestamp: 200,
+                balance: four_near,
+            },
+        ]);
+        s.assert_valid_termination_schedule(&Schedule(vec![
+            Checkpoint {
+                timestamp: 50,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 100,
+                balance: two_near,
+            },
+        ]));
+        s.assert_valid_termination_schedule(&s);
+    }
+
+    #[test]
+    #[should_panic = "The lockup schedule is ahead of the termination schedule at timestamp 100"]
+    fn test_valid_termination_schedule_lockup_ahead_of_termination() {
+        let two_near = NearToken::from_near(2);
+        let four_near = NearToken::from_near(4);
+        let s = Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 100,
+                balance: two_near,
+            },
+            Checkpoint {
+                timestamp: 200,
+                balance: two_near,
+            },
+            Checkpoint {
+                timestamp: 300,
+                balance: four_near,
+            },
+        ]);
+        let termination_schedule = Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 300,
+                balance: four_near,
+            },
+        ]);
+        s.assert_valid_termination_schedule(&termination_schedule);
+    }
+
+    #[test]
+    #[should_panic = "The termination schedule is ahead of the lockup schedule at timestamp 200"]
+    fn test_valid_termination_schedule_panics_case_b() {
+        let two_near = NearToken::from_near(2);
+        let four_near = NearToken::from_near(4);
+        let termination_schedule = Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 100,
+                balance: two_near,
+            },
+            Checkpoint {
+                timestamp: 200,
+                balance: two_near,
+            },
+            Checkpoint {
+                timestamp: 300,
+                balance: four_near,
+            },
+        ]);
+        let s = Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 300,
+                balance: four_near,
+            },
+        ]);
+        s.assert_valid_termination_schedule(&termination_schedule);
     }
 }
