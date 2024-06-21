@@ -1,8 +1,14 @@
-use crate::*;
+use near_sdk::{AccountId, near, NearToken};
+use near_sdk::json_types::{Base58CryptoHash, U128};
+use crate::{Contract, VERSION};
+use crate::lockup::{Lockup, LockupCreate, LockupIndex};
+use crate::schedule::Schedule;
+use crate::termination::{TerminationConfig, VestingConditions};
+use crate::util::{current_timestamp_sec, ZERO_NEAR};
+use crate::ContractExt;
 
-#[derive(Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Deserialize))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug)]
 pub struct LockupView {
     pub account_id: AccountId,
     pub schedule: Schedule,
@@ -13,7 +19,7 @@ pub struct LockupView {
     pub total_balance: NearToken,
     pub unclaimed_balance: NearToken,
     /// The current timestamp
-    pub timestamp: TimestampSec,
+    pub timestamp: U128,
 }
 
 impl From<Lockup> for LockupView {
@@ -42,9 +48,7 @@ impl From<Lockup> for LockupView {
     }
 }
 
-#[derive(Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Deserialize))]
+#[near(serializers = [borsh, json])]
 pub struct LockupCreateView {
     pub account_id: AccountId,
     pub schedule: Schedule,
@@ -54,7 +58,7 @@ pub struct LockupCreateView {
     pub total_balance: NearToken,
     pub unclaimed_balance: NearToken,
     /// The current timestamp
-    pub timestamp: TimestampSec,
+    pub timestamp: U128,
 }
 
 impl From<LockupCreate> for LockupCreateView {

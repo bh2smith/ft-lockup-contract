@@ -1,4 +1,8 @@
-use crate::*;
+use near_sdk::{AccountId, CryptoHash, near, NearToken};
+use near_sdk::json_types::{Base58CryptoHash, U128};
+use crate::lockup::Lockup;
+use crate::schedule::Schedule;
+use crate::util::ZERO_NEAR;
 
 #[near(serializers = [borsh, json])]
 #[derive(Debug, PartialEq, Clone)]
@@ -22,7 +26,7 @@ impl Lockup {
     pub fn terminate(
         &mut self,
         hashed_schedule: Option<Schedule>,
-        termination_timestamp: TimestampSec,
+        termination_timestamp: U128,
     ) -> (NearToken, AccountId) {
         let termination_config = self
             .termination_config

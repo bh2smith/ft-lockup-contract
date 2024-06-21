@@ -87,8 +87,7 @@ impl SelfCallbacks for Contract {
 
     #[private]
     fn after_lockup_termination(&mut self, account_id: AccountId, amount: NearToken) -> NearToken {
-        let promise_success = is_promise_success();
-        if !promise_success {
+        if !is_promise_success() {
             log!("Lockup termination transfer has failed.");
             // There is no internal balance, so instead we create a new lockup.
             let lockup = Lockup::new_unlocked_since(account_id, amount, current_timestamp_sec());

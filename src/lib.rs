@@ -1,12 +1,12 @@
-use near_sdk::borsh::{self, BorshDeserialize, BorshSerialize};
 use near_sdk::collections::{LookupMap, UnorderedSet, Vector};
-use near_sdk::json_types::{Base58CryptoHash, U128};
-use near_sdk::serde::{Deserialize, Serialize};
+use near_sdk::json_types::U128;
 use near_sdk::{
     assert_one_yocto, env, log, near, serde_json, AccountId, BorshStorageKey, CryptoHash, Gas,
-    NearToken, PanicOnDefault, Promise, PromiseOrValue, Timestamp,
+    NearToken, PanicOnDefault, Promise, PromiseOrValue,
 };
 use std::collections::{HashMap, HashSet};
+use borsh::BorshSerialize;
+
 pub mod callbacks;
 pub mod event;
 pub mod ft_token_receiver;
@@ -20,10 +20,7 @@ pub mod view;
 use crate::event::*;
 use crate::lockup::*;
 use crate::schedule::*;
-use crate::termination::*;
 use crate::util::*;
-
-pub type TimestampSec = u128;
 
 pub type TokenAccountId = AccountId;
 
@@ -186,7 +183,7 @@ impl Contract {
         &mut self,
         lockup_index: LockupIndex,
         hashed_schedule: Option<Schedule>,
-        termination_timestamp: Option<TimestampSec>,
+        termination_timestamp: Option<U128>,
     ) -> PromiseOrValue<NearToken> {
         assert_one_yocto();
         self.assert_deposit_whitelist(&env::predecessor_account_id());

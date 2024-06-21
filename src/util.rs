@@ -1,10 +1,13 @@
-use crate::*;
+use near_sdk::{env, NearToken, Timestamp};
+use near_sdk::json_types::U128;
 
 pub(crate) const ZERO_NEAR: NearToken = NearToken::from_near(0);
-pub(crate) fn nano_to_sec(timestamp: Timestamp) -> TimestampSec {
-    (timestamp / 10u64.pow(9)) as _
+pub(crate) fn nano_to_sec(timestamp: Timestamp) -> u128 {
+    (timestamp / 10u64.pow(9)) as u128
 }
 
-pub(crate) fn current_timestamp_sec() -> TimestampSec {
-    nano_to_sec(env::block_timestamp())
+
+// TODO - DO NOT USE BLOCK TIME! USE BLOCK NUMBER!
+pub(crate) fn current_timestamp_sec() -> U128 {
+    U128(nano_to_sec(env::block_timestamp()))
 }

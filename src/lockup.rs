@@ -1,9 +1,13 @@
-use crate::*;
+use near_sdk::{AccountId, near, NearToken};
+use near_sdk::json_types::U128;
+use crate::schedule::Schedule;
+use crate::termination::{TerminationConfig, VestingConditions};
+use crate::util::{current_timestamp_sec, ZERO_NEAR};
+
 pub type LockupIndex = u64;
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LockupClaim {
     pub index: LockupIndex,
     pub claim_amount: NearToken,
@@ -24,7 +28,7 @@ impl Lockup {
     pub fn new_unlocked_since(
         account_id: AccountId,
         total_balance: NearToken,
-        timestamp: TimestampSec,
+        timestamp: U128,
     ) -> Self {
         Self {
             account_id,
@@ -35,7 +39,7 @@ impl Lockup {
     }
 
     pub fn new_unlocked(account_id: AccountId, total_balance: NearToken) -> Self {
-        Self::new_unlocked_since(account_id, total_balance, 1)
+        Self::new_unlocked_since(account_id, total_balance, U128(1))
     }
 
     pub fn claim(&mut self, index: LockupIndex, claim_amount: NearToken) -> LockupClaim {
@@ -82,16 +86,14 @@ impl Lockup {
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Clone))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LockupCreate {
     pub account_id: AccountId,
     pub schedule: Schedule,
     pub vesting_schedule: Option<VestingConditions>,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl LockupCreate {
     pub fn new_unlocked(account_id: AccountId, total_balance: NearToken) -> Self {
         Self {
