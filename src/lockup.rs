@@ -1,27 +1,26 @@
-use crate::*;
-use std::convert::TryInto;
+use crate::{
+    schedule::Schedule,
+    termination::{TerminationConfig, VestingConditions},
+    util::{current_timestamp_sec, ZERO_NEAR},
+};
+use near_sdk::{json_types::U128, near, AccountId, NearToken};
 
-pub type LockupIndex = u32;
+pub type LockupIndex = u64;
 
-#[derive(Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LockupClaim {
     pub index: LockupIndex,
-    pub claim_amount: WrappedBalance,
+    pub claim_amount: NearToken,
     pub is_final: bool,
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
+#[near(serializers = [borsh, json])]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Clone))]
 pub struct Lockup {
-    pub account_id: ValidAccountId,
+    pub account_id: AccountId,
     pub schedule: Schedule,
-
-    #[serde(default)]
-    #[serde(with = "u128_dec_format")]
-    pub claimed_balance: Balance,
+    pub claimed_balance: NearToken,
     /// An optional configuration that allows vesting/lockup termination.
     pub termination_config: Option<TerminationConfig>,
 }
@@ -29,22 +28,22 @@ pub struct Lockup {
 impl Lockup {
     pub fn new_unlocked_since(
         account_id: AccountId,
-        total_balance: Balance,
-        timestamp: TimestampSec,
+        total_balance: NearToken,
+        timestamp: U128,
     ) -> Self {
         Self {
-            account_id: account_id.try_into().unwrap(),
+            account_id,
             schedule: Schedule::new_unlocked_since(total_balance, timestamp),
-            claimed_balance: 0,
+            claimed_balance: NearToken::from_near(0),
             termination_config: None,
         }
     }
 
-    pub fn new_unlocked(account_id: AccountId, total_balance: Balance) -> Self {
-        Self::new_unlocked_since(account_id, total_balance, 1)
+    pub fn new_unlocked(account_id: AccountId, total_balance: NearToken) -> Self {
+        Self::new_unlocked_since(account_id, total_balance, U128(1))
     }
 
-    pub fn claim(&mut self, index: LockupIndex, claim_amount: Balance) -> LockupClaim {
+    pub fn claim(&mut self, index: LockupIndex, claim_amount: NearToken) -> LockupClaim {
         let unlocked_balance = self.schedule.unlocked_balance(current_timestamp_sec());
         let balance_claimed_new = self
             .claimed_balance
@@ -59,14 +58,14 @@ impl Lockup {
         self.claimed_balance = balance_claimed_new;
         LockupClaim {
             index,
-            claim_amount: claim_amount.into(),
+            claim_amount,
             is_final: balance_claimed_new == self.schedule.total_balance(),
         }
     }
 
-    pub fn assert_new_valid(&self, total_balance: Balance) {
+    pub fn assert_new_valid(&self, total_balance: NearToken) {
         assert_eq!(
-            self.claimed_balance, 0,
+            self.claimed_balance, ZERO_NEAR,
             "The initial lockup claimed balance should be 0"
         );
         self.schedule.assert_valid(total_balance);
@@ -81,25 +80,23 @@ impl Lockup {
                 }
                 VestingConditions::Schedule(schedule) => {
                     schedule.assert_valid(total_balance);
-                    self.schedule.assert_valid_termination_schedule(&schedule);
+                    self.schedule.assert_valid_termination_schedule(schedule);
                 }
             }
         }
     }
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Deserialize, Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Clone))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub struct LockupCreate {
-    pub account_id: ValidAccountId,
+    pub account_id: AccountId,
     pub schedule: Schedule,
     pub vesting_schedule: Option<VestingConditions>,
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 impl LockupCreate {
-    pub fn new_unlocked(account_id: ValidAccountId, total_balance: Balance) -> Self {
+    pub fn new_unlocked(account_id: AccountId, total_balance: NearToken) -> Self {
         Self {
             account_id,
             schedule: Schedule::new_unlocked(total_balance),
@@ -109,19 +106,16 @@ impl LockupCreate {
 }
 
 impl LockupCreate {
-    pub fn into_lockup(&self, payer_id: &ValidAccountId) -> Lockup {
+    pub fn into_lockup(&self, payer_id: &AccountId) -> Lockup {
         let vesting_schedule = self.vesting_schedule.clone();
         Lockup {
             account_id: self.account_id.clone(),
             schedule: self.schedule.clone(),
-            claimed_balance: 0,
-            termination_config: match vesting_schedule {
-                None => None,
-                Some(vesting_schedule) => Some(TerminationConfig {
-                    beneficiary_id: payer_id.clone(),
-                    vesting_schedule,
-                }),
-            },
+            claimed_balance: ZERO_NEAR,
+            termination_config: vesting_schedule.map(|vesting_schedule| TerminationConfig {
+                beneficiary_id: payer_id.clone(),
+                vesting_schedule,
+            }),
         }
     }
 }

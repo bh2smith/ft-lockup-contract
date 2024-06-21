@@ -8,12 +8,12 @@ edition = "2018"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
-near-sdk = "3.1.0"
-near-contract-standards = "3.1.0"
-uint = { version = "0.9.0", default-features = false }
-
+borsh = { version = "1.5.1", features = ["borsh-derive"] }
+near-sdk = { version = "5.1.0"}
+near-contract-standards = "5.1.0"
+near-sdk-contract-tools = "3.0.2"
 [dev-dependencies]
-near-sdk-sim = "3.2.0"
+near-sdk = { version = "5.1.0", features = ["unit-testing"] }
 
 [profile.release]
 codegen-units=1

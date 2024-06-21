@@ -1,17 +1,24 @@
-use crate::*;
+use crate::{
+    event::{FtLockupClaimLockup, FtLockupCreateLockup},
+    lockup::{Lockup, LockupClaim},
+    util::{current_timestamp_sec, ZERO_NEAR},
+    Contract, ContractExt, StorageKey,
+};
+use near_sdk::{
+    collections::UnorderedSet, ext_contract, is_promise_success, log, near_bindgen, AccountId,
+    NearToken,
+};
+use near_sdk_contract_tools::standard::nep297::Event;
 
-trait SelfCallbacks {
+#[ext_contract(callbacks)]
+pub trait SelfCallbacks {
     fn after_ft_transfer(
         &mut self,
         account_id: AccountId,
         lockup_claims: Vec<LockupClaim>,
-    ) -> WrappedBalance;
+    ) -> NearToken;
 
-    fn after_lockup_termination(
-        &mut self,
-        account_id: AccountId,
-        amount: WrappedBalance,
-    ) -> WrappedBalance;
+    fn after_lockup_termination(&mut self, account_id: AccountId, amount: NearToken) -> NearToken;
 }
 
 #[near_bindgen]
@@ -21,9 +28,9 @@ impl SelfCallbacks for Contract {
         &mut self,
         account_id: AccountId,
         lockup_claims: Vec<LockupClaim>,
-    ) -> WrappedBalance {
+    ) -> NearToken {
         let promise_success = is_promise_success();
-        let mut total_balance = 0;
+        let mut total_balance = ZERO_NEAR;
         if promise_success {
             let mut remove_indices = vec![];
             let mut events: Vec<FtLockupClaimLockup> = vec![];
@@ -36,7 +43,7 @@ impl SelfCallbacks for Contract {
                 if is_final {
                     remove_indices.push(index);
                 }
-                total_balance += claim_amount.0;
+                total_balance = total_balance.saturating_add(claim_amount);
                 let event = FtLockupClaimLockup {
                     id: index,
                     amount: claim_amount,
@@ -44,28 +51,35 @@ impl SelfCallbacks for Contract {
                 events.push(event);
             }
             if !remove_indices.is_empty() {
-                let mut indices = self.account_lockups.get(&account_id).unwrap_or_default();
+                let mut indices = self
+                    .account_lockups
+                    .get(&account_id)
+                    .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
                 for index in remove_indices {
                     indices.remove(&index);
                 }
                 self.internal_save_account_lockups(&account_id, indices);
             }
-            emit(EventKind::FtLockupClaimLockup(events));
+            // TODO: Should we emit a single vector or all separate?
+            events.iter().for_each(|event| event.emit());
         } else {
             log!("Token transfer has failed. Refunding.");
             let mut modified = false;
-            let mut indices = self.account_lockups.get(&account_id).unwrap_or_default();
+            let mut indices = self
+                .account_lockups
+                .get(&account_id)
+                .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
             for LockupClaim {
                 index,
                 claim_amount,
                 ..
             } in lockup_claims
             {
-                if indices.insert(index) {
+                if indices.insert(&index) {
                     modified = true;
                 }
                 let mut lockup = self.lockups.get(index as _).unwrap();
-                lockup.claimed_balance -= claim_amount.0;
+                lockup.claimed_balance = lockup.claimed_balance.saturating_sub(claim_amount);
                 self.lockups.replace(index as _, &lockup);
             }
 
@@ -73,24 +87,18 @@ impl SelfCallbacks for Contract {
                 self.internal_save_account_lockups(&account_id, indices);
             }
         }
-        total_balance.into()
+        total_balance
     }
 
     #[private]
-    fn after_lockup_termination(
-        &mut self,
-        account_id: AccountId,
-        amount: WrappedBalance,
-    ) -> WrappedBalance {
-        let promise_success = is_promise_success();
-        if !promise_success {
+    fn after_lockup_termination(&mut self, account_id: AccountId, amount: NearToken) -> NearToken {
+        if !is_promise_success() {
             log!("Lockup termination transfer has failed.");
             // There is no internal balance, so instead we create a new lockup.
-            let lockup = Lockup::new_unlocked_since(account_id, amount.0, current_timestamp_sec());
+            let lockup = Lockup::new_unlocked_since(account_id, amount, current_timestamp_sec());
             let lockup_index = self.internal_add_lockup(&lockup);
-            let event: FtLockupCreateLockup = (lockup_index, lockup, None).into();
-            emit(EventKind::FtLockupCreateLockup(vec![event]));
-            0.into()
+            FtLockupCreateLockup::from((lockup_index, lockup)).emit();
+            ZERO_NEAR
         } else {
             amount
         }

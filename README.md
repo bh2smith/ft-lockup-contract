@@ -1,4 +1,4 @@
-# Fungible Token Lockup contract
+# Fungible Token Lockup Contract
 
 ## Features
 
@@ -8,8 +8,8 @@
 - Ability to create a lockup that can be terminated
   - A single lockup can be only terminated by a specific account ID.
   - Supports custom vesting schedule that should be ahead of the lockup schedule
-  - The vesting schedule can be hidden behind a hash, so it only needs to be revealed in case of termnation.
+  - The vesting schedule can be hidden behind a hash, so it only needs to be revealed in case of termination.
 - Automatic rollbacks if a FT transfer fails.
 - Claiming all account's lockups in a single transaction.
 - Ability to add new lockups.
-- Whitelist for the accounts that can create new lockups.
+- Allowlist for the accounts that can create new lockups.

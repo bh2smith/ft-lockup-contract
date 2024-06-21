@@ -1,18 +1,15 @@
-use crate::*;
+use crate::{
+    lockup::{Lockup, LockupIndex},
+    Contract, StorageKey,
+};
+use near_sdk::{collections::UnorderedSet, AccountId};
+use std::collections::HashSet;
 
 impl Contract {
-    pub(crate) fn assert_deposit_whitelist(&self, account_id: &AccountId) {
+    pub(crate) fn assert_deposit_allowlist(&self, account_id: &AccountId) {
         assert!(
-            self.deposit_whitelist.contains(account_id),
-            "Not in deposit whitelist"
-        );
-    }
-
-    pub(crate) fn assert_draft_operators_whitelist(&self, account_id: &AccountId) {
-        assert!(
-            (self.deposit_whitelist.contains(account_id)
-                || self.draft_operators_whitelist.contains(account_id)),
-            "Not in draft operators whitelist"
+            self.deposit_allowlist.contains(account_id),
+            "Not in deposit allowlist"
         );
     }
 
@@ -21,17 +18,17 @@ impl Contract {
         self.lockups.push(lockup);
         let mut indices = self
             .account_lockups
-            .get(lockup.account_id.as_ref())
-            .unwrap_or_default();
-        indices.insert(index);
-        self.internal_save_account_lockups(lockup.account_id.as_ref(), indices);
+            .get(&lockup.account_id)
+            .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
+        indices.insert(&index);
+        self.internal_save_account_lockups(&lockup.account_id, indices);
         index
     }
 
     pub(crate) fn internal_save_account_lockups(
         &mut self,
         account_id: &AccountId,
-        indices: HashSet<LockupIndex>,
+        indices: UnorderedSet<LockupIndex>,
     ) {
         if indices.is_empty() {
             self.account_lockups.remove(account_id);
@@ -46,8 +43,8 @@ impl Contract {
     ) -> Vec<(LockupIndex, Lockup)> {
         self.account_lockups
             .get(account_id)
-            .unwrap_or_default()
-            .into_iter()
+            .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups))
+            .iter()
             .map(|lockup_index| (lockup_index, self.lockups.get(lockup_index as _).unwrap()))
             .collect()
     }
@@ -57,7 +54,10 @@ impl Contract {
         account_id: &AccountId,
         lockup_ids: &HashSet<LockupIndex>,
     ) -> Vec<(LockupIndex, Lockup)> {
-        let account_lockup_ids = self.account_lockups.get(account_id).unwrap_or_default();
+        let account_lockup_ids = self
+            .account_lockups
+            .get(account_id)
+            .unwrap_or(UnorderedSet::new(StorageKey::AccountLockups));
 
         lockup_ids
             .iter()
@@ -67,8 +67,8 @@ impl Contract {
                     "lockup not found for account: {}",
                     lockup_index,
                 );
-                let lockup = self.lockups.get(lockup_index as _).unwrap();
-                (lockup_index.clone(), lockup)
+                let lockup = self.lockups.get(lockup_index).unwrap();
+                (lockup_index, lockup)
             })
             .collect()
     }

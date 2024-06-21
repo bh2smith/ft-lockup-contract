@@ -1,33 +1,38 @@
-use crate::*;
-use std::convert::TryInto;
+use crate::{
+    lockup::{Lockup, LockupCreate, LockupIndex},
+    schedule::Schedule,
+    termination::{TerminationConfig, VestingConditions},
+    util::{current_timestamp_sec, ZERO_NEAR},
+    Contract, ContractExt, VERSION,
+};
+use near_sdk::{
+    json_types::{Base58CryptoHash, U128},
+    near, AccountId, NearToken,
+};
 
-#[derive(Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Deserialize))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug)]
 pub struct LockupView {
-    pub account_id: ValidAccountId,
+    pub account_id: AccountId,
     pub schedule: Schedule,
-
-    #[serde(default)]
-    #[serde(with = "u128_dec_format")]
-    pub claimed_balance: Balance,
+    pub claimed_balance: NearToken,
     /// An optional configuration that allows vesting/lockup termination.
     pub termination_config: Option<TerminationConfig>,
 
-    #[serde(with = "u128_dec_format")]
-    pub total_balance: Balance,
-    #[serde(with = "u128_dec_format")]
-    pub unclaimed_balance: Balance,
+    pub total_balance: NearToken,
+    pub unclaimed_balance: NearToken,
     /// The current timestamp
-    pub timestamp: TimestampSec,
+    pub timestamp: U128,
 }
 
 impl From<Lockup> for LockupView {
     fn from(lockup: Lockup) -> Self {
         let total_balance = lockup.schedule.total_balance();
         let timestamp = current_timestamp_sec();
-        let unclaimed_balance =
-            lockup.schedule.unlocked_balance(timestamp) - lockup.claimed_balance;
+        let unclaimed_balance = lockup
+            .schedule
+            .unlocked_balance(timestamp)
+            .saturating_sub(lockup.claimed_balance);
         let Lockup {
             account_id,
             schedule,
@@ -46,22 +51,17 @@ impl From<Lockup> for LockupView {
     }
 }
 
-#[derive(Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Deserialize))]
+#[near(serializers = [borsh, json])]
 pub struct LockupCreateView {
-    pub account_id: ValidAccountId,
+    pub account_id: AccountId,
     pub schedule: Schedule,
     pub vesting_schedule: Option<VestingConditions>,
 
-    #[serde(with = "u128_dec_format")]
-    pub claimed_balance: Balance,
-    #[serde(with = "u128_dec_format")]
-    pub total_balance: Balance,
-    #[serde(with = "u128_dec_format")]
-    pub unclaimed_balance: Balance,
+    pub claimed_balance: NearToken,
+    pub total_balance: NearToken,
+    pub unclaimed_balance: NearToken,
     /// The current timestamp
-    pub timestamp: TimestampSec,
+    pub timestamp: U128,
 }
 
 impl From<LockupCreate> for LockupCreateView {
@@ -78,7 +78,7 @@ impl From<LockupCreate> for LockupCreateView {
             account_id,
             schedule,
             vesting_schedule,
-            claimed_balance: 0,
+            claimed_balance: ZERO_NEAR,
             total_balance,
             unclaimed_balance,
             timestamp,
@@ -86,58 +86,14 @@ impl From<LockupCreate> for LockupCreateView {
     }
 }
 
-#[derive(Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Deserialize))]
-pub struct DraftGroupView {
-    #[serde(with = "u128_dec_format")]
-    pub total_amount: Balance,
-    pub payer_id: Option<ValidAccountId>,
-    pub draft_indices: Vec<DraftIndex>,
-    pub discarded: bool,
-    pub funded: bool,
-}
-
-impl From<DraftGroup> for DraftGroupView {
-    fn from(draft_group: DraftGroup) -> Self {
-        Self {
-            total_amount: draft_group.total_amount,
-            payer_id: draft_group.payer_id.clone(),
-            draft_indices: draft_group.draft_indices.into_iter().collect(),
-            discarded: draft_group.discarded,
-            funded: draft_group.payer_id.is_some(),
-        }
-    }
-}
-
-#[derive(Serialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Deserialize))]
-pub struct DraftView {
-    pub draft_group_id: DraftGroupIndex,
-    pub lockup_create: LockupCreateView,
-}
-
-impl From<Draft> for DraftView {
-    fn from(draft: Draft) -> Self {
-        Self {
-            draft_group_id: draft.draft_group_id,
-            lockup_create: draft.lockup_create.into(),
-        }
-    }
-}
-
-#[near_bindgen]
+#[near]
 impl Contract {
-    pub fn get_token_account_id(&self) -> ValidAccountId {
-        self.token_account_id.clone().try_into().unwrap()
+    pub fn get_token_account_id(&self) -> AccountId {
+        self.token_account_id.clone()
     }
 
-    pub fn get_account_lockups(
-        &self,
-        account_id: ValidAccountId,
-    ) -> Vec<(LockupIndex, LockupView)> {
-        self.internal_get_account_lockups(account_id.as_ref())
+    pub fn get_account_lockups(&self, account_id: AccountId) -> Vec<(LockupIndex, LockupView)> {
+        self.internal_get_account_lockups(&account_id)
             .into_iter()
             .map(|(lockup_index, lockup)| (lockup_index, lockup.into()))
             .collect()
@@ -154,7 +110,7 @@ impl Contract {
             .collect()
     }
 
-    pub fn get_num_lockups(&self) -> u32 {
+    pub fn get_num_lockups(&self) -> u64 {
         self.lockups.len() as _
     }
 
@@ -170,12 +126,8 @@ impl Contract {
             .collect()
     }
 
-    pub fn get_deposit_whitelist(&self) -> Vec<AccountId> {
-        self.deposit_whitelist.to_vec()
-    }
-
-    pub fn get_draft_operators_whitelist(&self) -> Vec<AccountId> {
-        self.draft_operators_whitelist.to_vec()
+    pub fn get_deposit_allowlist(&self) -> Vec<AccountId> {
+        self.deposit_allowlist.to_vec()
     }
 
     pub fn hash_schedule(&self, schedule: Schedule) -> Base58CryptoHash {
@@ -185,61 +137,14 @@ impl Contract {
     pub fn validate_schedule(
         &self,
         schedule: Schedule,
-        total_balance: WrappedBalance,
+        total_balance: NearToken,
         termination_schedule: Option<Schedule>,
     ) {
-        schedule.assert_valid(total_balance.0);
+        schedule.assert_valid(total_balance);
         if let Some(termination_schedule) = termination_schedule {
-            termination_schedule.assert_valid(total_balance.0);
+            termination_schedule.assert_valid(total_balance);
             schedule.assert_valid_termination_schedule(&termination_schedule);
         }
-    }
-
-    pub fn get_next_draft_group_id(&self) -> DraftGroupIndex {
-        self.next_draft_group_id
-    }
-
-    pub fn get_next_draft_id(&self) -> DraftGroupIndex {
-        self.next_draft_id
-    }
-
-    pub fn get_num_draft_groups(&self) -> u32 {
-        self.draft_groups.len() as _
-    }
-
-    pub fn get_draft_group(&self, index: DraftGroupIndex) -> Option<DraftGroupView> {
-        self.draft_groups.get(&index as _).map(|group| group.into())
-    }
-
-    pub fn get_draft_groups_paged(
-        &self,
-        // not the draft_id, but internal index used inside the LookupMap struct
-        from_index: Option<DraftGroupIndex>,
-        to_index: Option<DraftGroupIndex>,
-    ) -> Vec<(DraftGroupIndex, DraftGroupView)> {
-        let from_index = from_index.unwrap_or(0);
-        let to_index = to_index.unwrap_or(self.draft_groups.len() as _);
-        let keys = self.draft_groups.keys_as_vector();
-        let values = self.draft_groups.values_as_vector();
-        (from_index..std::cmp::min(self.next_draft_group_id as _, to_index))
-            .map(|index| {
-                (
-                    keys.get(index as _).unwrap(),
-                    values.get(index as _).unwrap().into(),
-                )
-            })
-            .collect()
-    }
-
-    pub fn get_draft(&self, index: DraftIndex) -> Option<DraftView> {
-        self.drafts.get(&index as _).map(|draft| draft.into())
-    }
-
-    pub fn get_drafts(&self, indices: Vec<DraftIndex>) -> Vec<(DraftIndex, DraftView)> {
-        indices
-            .into_iter()
-            .filter_map(|index| self.get_draft(index).map(|draft| (index, draft)))
-            .collect()
     }
 
     pub fn get_version(&self) -> String {

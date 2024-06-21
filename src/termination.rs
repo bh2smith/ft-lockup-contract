@@ -1,21 +1,23 @@
-use crate::*;
+use crate::{lockup::Lockup, schedule::Schedule, util::ZERO_NEAR};
+use near_sdk::{
+    json_types::{Base58CryptoHash, U128},
+    near, AccountId, CryptoHash, NearToken,
+};
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize, Clone)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub enum VestingConditions {
     SameAsLockupSchedule,
     Hash(Base58CryptoHash),
     Schedule(Schedule),
 }
 
-#[derive(BorshDeserialize, BorshSerialize, Serialize, Deserialize)]
-#[serde(crate = "near_sdk::serde")]
-#[cfg_attr(not(target_arch = "wasm32"), derive(Debug, PartialEq, Clone))]
+#[near(serializers = [borsh, json])]
+#[derive(Debug, PartialEq, Clone)]
 pub struct TerminationConfig {
     /// The account ID who paid for the lockup creation
     /// and will receive unvested balance upon termination
-    pub beneficiary_id: ValidAccountId,
+    pub beneficiary_id: AccountId,
     /// An optional vesting schedule
     pub vesting_schedule: VestingConditions,
 }
@@ -24,8 +26,8 @@ impl Lockup {
     pub fn terminate(
         &mut self,
         hashed_schedule: Option<Schedule>,
-        termination_timestamp: TimestampSec,
-    ) -> (Balance, AccountId) {
+        termination_timestamp: U128,
+    ) -> (NearToken, AccountId) {
         let termination_config = self
             .termination_config
             .take()
@@ -47,14 +49,14 @@ impl Lockup {
                 self.schedule.assert_valid_termination_schedule(schedule);
                 schedule
             }
-            VestingConditions::Schedule(schedule) => &schedule,
+            VestingConditions::Schedule(schedule) => schedule,
         }
         .unlocked_balance(termination_timestamp);
-        let unvested_balance = total_balance - vested_balance;
-        if unvested_balance > 0 {
+        let unvested_balance = total_balance.saturating_sub(vested_balance);
+        if unvested_balance > ZERO_NEAR {
             self.schedule
                 .terminate(vested_balance, termination_timestamp);
         }
-        (unvested_balance, termination_config.beneficiary_id.into())
+        (unvested_balance, termination_config.beneficiary_id)
     }
 }
