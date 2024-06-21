@@ -7,6 +7,7 @@ use near_sdk::{
     log, near, serde_json, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
     PromiseOrValue,
 };
+use near_sdk_contract_tools::standard::nep297::Event;
 use std::collections::HashMap;
 
 pub mod callbacks;
@@ -60,14 +61,14 @@ impl Contract {
     pub fn new(token_account_id: AccountId, deposit_whitelist: Vec<AccountId>) -> Self {
         let mut deposit_whitelist_set = UnorderedSet::new(StorageKey::DepositWhitelist);
         deposit_whitelist_set.extend(deposit_whitelist.clone());
-        emit(FtLockup::New(FtLockupNew {
+        FtLockupNew {
             token_account_id: token_account_id.clone(),
-        }));
-        emit(FtLockup::AddToDepositWhitelist(
-            FtLockupAddToDepositWhitelist {
-                account_ids: deposit_whitelist,
-            },
-        ));
+        }
+        .emit();
+        FtLockupAddToDepositWhitelist {
+            account_ids: deposit_whitelist,
+        }
+        .emit();
         Self {
             lockups: Vector::new(StorageKey::Lockups),
             account_lockups: LookupMap::new(StorageKey::AccountLockups),
@@ -211,12 +212,12 @@ impl Contract {
             self.internal_save_account_lockups(&lockup_account_id, indices);
         }
 
-        let event = FtLockupTerminateLockup {
+        FtLockupTerminateLockup {
             id: lockup_index,
             termination_timestamp,
             unvested_balance,
-        };
-        emit(FtLockup::TerminateLockup(vec![event]));
+        }
+        .emit();
 
         if unvested_balance.as_yoctonear() > 0 {
             PromiseOrValue::from(
@@ -261,9 +262,7 @@ impl Contract {
         for account_id in &account_ids {
             self.deposit_whitelist.insert(account_id);
         }
-        emit(FtLockup::AddToDepositWhitelist(
-            FtLockupAddToDepositWhitelist { account_ids },
-        ));
+        FtLockupAddToDepositWhitelist { account_ids }.emit()
     }
 
     // preserving both options for API compatibility
@@ -287,8 +286,6 @@ impl Contract {
             !self.deposit_whitelist.is_empty(),
             "cannot remove all accounts from deposit whitelist",
         );
-        emit(FtLockup::RemoveFromDepositWhitelist(
-            FtLockupRemoveFromDepositWhitelist { account_ids },
-        ));
+        FtLockupRemoveFromDepositWhitelist { account_ids }.emit()
     }
 }

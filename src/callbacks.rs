@@ -1,5 +1,5 @@
 use crate::{
-    event::{emit, FtLockup, FtLockupClaimLockup, FtLockupCreateLockup},
+    event::{FtLockupClaimLockup, FtLockupCreateLockup},
     lockup::{Lockup, LockupClaim},
     util::{current_timestamp_sec, ZERO_NEAR},
     Contract, ContractExt, StorageKey,
@@ -8,6 +8,7 @@ use near_sdk::{
     collections::UnorderedSet, ext_contract, is_promise_success, log, near_bindgen, AccountId,
     NearToken,
 };
+use near_sdk_contract_tools::standard::nep297::Event;
 
 #[ext_contract(callbacks)]
 pub trait SelfCallbacks {
@@ -59,7 +60,8 @@ impl SelfCallbacks for Contract {
                 }
                 self.internal_save_account_lockups(&account_id, indices);
             }
-            emit(FtLockup::ClaimLockup(events));
+            // TODO: Should we emit a single vector or all separate?
+            let _ = events.iter().for_each(|event| event.emit());
         } else {
             log!("Token transfer has failed. Refunding.");
             let mut modified = false;
@@ -95,8 +97,7 @@ impl SelfCallbacks for Contract {
             // There is no internal balance, so instead we create a new lockup.
             let lockup = Lockup::new_unlocked_since(account_id, amount, current_timestamp_sec());
             let lockup_index = self.internal_add_lockup(&lockup);
-            let event: FtLockupCreateLockup = (lockup_index, lockup).into();
-            emit(FtLockup::CreateLockup(vec![event]));
+            FtLockupCreateLockup::from((lockup_index, lockup)).emit();
             ZERO_NEAR
         } else {
             amount

@@ -11,6 +11,7 @@ crate-type = ["cdylib", "rlib"]
 borsh = { version = "1.5.1", features = ["borsh-derive"] }
 near-sdk = { version = "5.1.0"}
 near-contract-standards = "5.1.0"
+near-sdk-contract-tools = "3.0.2"
 [dev-dependencies]
 near-sdk = { version = "5.1.0", features = ["unit-testing"] }
 

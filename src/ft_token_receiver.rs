@@ -1,12 +1,9 @@
-use crate::{
-    event::{emit, FtLockup, FtLockupCreateLockup},
-    lockup::LockupCreate,
-    Contract, ContractExt,
-};
+use crate::{event::FtLockupCreateLockup, lockup::LockupCreate, Contract, ContractExt};
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
 use near_sdk::{
     env, json_types::U128, log, near, serde_json, AccountId, NearToken, PromiseOrValue,
 };
+use near_sdk_contract_tools::standard::nep297::Event;
 
 #[near(serializers = [json])]
 pub enum FtMessage {
@@ -39,8 +36,7 @@ impl FungibleTokenReceiver for Contract {
                     lockup.account_id,
                     index
                 );
-                let event: FtLockupCreateLockup = (index, lockup).into();
-                emit(FtLockup::CreateLockup(vec![event]));
+                FtLockupCreateLockup::from((index, lockup)).emit()
             }
         }
 
