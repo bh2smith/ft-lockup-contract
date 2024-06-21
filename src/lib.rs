@@ -64,7 +64,7 @@ impl Contract {
             token_account_id: token_account_id.clone(),
         }
         .emit();
-        FtLockupAddToDepositallowlist {
+        FtLockupAddToDepositAllowlist {
             account_ids: deposit_allowlist,
         }
         .emit();
@@ -261,7 +261,7 @@ impl Contract {
         for account_id in &account_ids {
             self.deposit_allowlist.insert(account_id);
         }
-        FtLockupAddToDepositallowlist { account_ids }.emit()
+        FtLockupAddToDepositAllowlist { account_ids }.emit()
     }
 
     // preserving both options for API compatibility
@@ -285,6 +285,6 @@ impl Contract {
             !self.deposit_allowlist.is_empty(),
             "cannot remove all accounts from deposit allowlist",
         );
-        FtLockupRemoveFromDepositallowlist { account_ids }.emit()
+        FtLockupRemoveFromDepositAllowlist { account_ids }.emit()
     }
 }

@@ -10,22 +10,12 @@ pub struct FtLockupNew {
 }
 
 #[event(version = "1.0.0", standard = "ft-lockup")]
-pub struct FtLockupAddToDepositallowlist {
+pub struct FtLockupAddToDepositAllowlist {
     pub account_ids: Vec<AccountId>,
 }
 
 #[event(version = "1.0.0", standard = "ft-lockup")]
-pub struct FtLockupRemoveFromDepositallowlist {
-    pub account_ids: Vec<AccountId>,
-}
-
-#[event(version = "1.0.0", standard = "ft-lockup")]
-pub struct FtLockupAddToDraftOperatorsallowlist {
-    pub account_ids: Vec<AccountId>,
-}
-
-#[event(version = "1.0.0", standard = "ft-lockup")]
-pub struct FtLockupRemoveFromDraftOperatorsallowlist {
+pub struct FtLockupRemoveFromDepositAllowlist {
     pub account_ids: Vec<AccountId>,
 }
 
@@ -120,7 +110,7 @@ mod tests {
             .map(|&x| x.parse().unwrap())
             .collect();
 
-        FtLockupAddToDepositallowlist { account_ids }.emit();
+        FtLockupAddToDepositAllowlist { account_ids }.emit();
         let expected_log = json!({
             "standard": PACKAGE_NAME,
             "version": VERSION,
@@ -138,7 +128,7 @@ mod tests {
             .iter()
             .map(|&x| x.parse().unwrap())
             .collect();
-        FtLockupRemoveFromDepositallowlist { account_ids }.emit();
+        FtLockupRemoveFromDepositAllowlist { account_ids }.emit();
 
         assert_equal_logs(
             json!({
