@@ -1,5 +1,5 @@
 use crate::{
-    event::{FtLockupClaimLockup, FtLockupCreateLockup},
+    events::{FtLockupClaimLockup, FtLockupCreateLockup},
     lockup::{Lockup, LockupClaim},
     util::{current_timestamp_sec, ZERO_NEAR},
     Contract, ContractExt, StorageKey,

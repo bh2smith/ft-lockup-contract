@@ -1,6 +1,9 @@
-use crate::{lockup::LockupCreate, Contract, ContractExt};
+use crate::{events::FtLockupCreateLockup, lockup::LockupCreate, Contract, ContractExt};
 use near_contract_standards::fungible_token::receiver::FungibleTokenReceiver;
-use near_sdk::{env, json_types::U128, near, AccountId, PromiseOrValue};
+use near_sdk::{
+    env, json_types::U128, log, near, serde_json, AccountId, NearToken, PromiseOrValue,
+};
+use near_sdk_contract_tools::standard::nep297::Event;
 
 #[near(serializers = [json])]
 pub enum FtMessage {
@@ -12,8 +15,8 @@ impl FungibleTokenReceiver for Contract {
     fn ft_on_transfer(
         &mut self,
         sender_id: AccountId,
-        _amount: U128,
-        _msg: String,
+        amount: U128,
+        msg: String,
     ) -> PromiseOrValue<U128> {
         assert_eq!(
             env::predecessor_account_id(),
@@ -21,23 +24,21 @@ impl FungibleTokenReceiver for Contract {
             "Invalid token ID"
         );
         self.assert_deposit_allowlist(&sender_id);
-        // let amount = NearToken::from_yoctonear(amount.0);
-        // TODO Understand why this:
-        // let ft_message: FtMessage = serde_json::from_str(&msg).unwrap();
-        // match ft_message {
-        //     FtMessage::LockupCreate(lockup_create) => {
-        //         let lockup = lockup_create.into_lockup(&sender_id);
-        //         lockup.assert_new_valid(amount);
-        //         let index = self.internal_add_lockup(&lockup);
-        //         log!(
-        //             "Created new lockup for {} with index {}",
-        //             lockup.account_id,
-        //             index
-        //         );
-        //         FtLockupCreateLockup::from((index, lockup)).emit()
-        //     }
-        // }
-
+        let amount = NearToken::from_yoctonear(amount.0);
+        let ft_message: FtMessage = serde_json::from_str(&msg).unwrap();
+        match ft_message {
+            FtMessage::LockupCreate(lockup_create) => {
+                let lockup = lockup_create.into_lockup(&sender_id);
+                lockup.assert_new_valid(amount);
+                let index = self.internal_add_lockup(&lockup);
+                log!(
+                    "Created new lockup for {} with index {}",
+                    lockup.account_id,
+                    index
+                );
+                FtLockupCreateLockup::from((index, lockup)).emit()
+            }
+        }
         PromiseOrValue::Value(0.into())
     }
 }
@@ -45,10 +46,13 @@ impl FungibleTokenReceiver for Contract {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{
+        schedule::{Checkpoint, Schedule},
+        util::ZERO_NEAR,
+    };
     use near_sdk::{
         test_utils::{accounts, VMContextBuilder},
         testing_env,
-        PromiseOrValue::Promise,
     };
 
     fn get_context(predecessor_account_id: AccountId) -> VMContextBuilder {
@@ -63,16 +67,32 @@ mod tests {
     #[test]
     fn test_ft_on_transfer_happy_path() {
         let context = get_context(accounts(0));
+        let one_near = NearToken::from_near(1);
         testing_env!(context.build());
         let mut contract = Contract::new(accounts(0), vec![accounts(1)]);
-        let value = contract.ft_on_transfer(accounts(1), U128(1), "Poop".to_string());
-        match value {
-            Promise(_) => {
-                panic!("uh uh")
-            }
-            PromiseOrValue::Value(v) => {
-                assert_eq!(v.0, 0)
-            }
+        let lockup_create = FtMessage::LockupCreate(LockupCreate {
+            account_id: "x.near".parse().unwrap(),
+            schedule: Schedule(vec![
+                Checkpoint {
+                    timestamp: 0,
+                    balance: ZERO_NEAR,
+                },
+                Checkpoint {
+                    timestamp: 1,
+                    balance: one_near,
+                },
+            ]),
+            vesting_schedule: None,
+        });
+        let value = contract.ft_on_transfer(
+            accounts(1),
+            one_near.as_yoctonear().into(),
+            serde_json::to_string(&lockup_create).unwrap(),
+        );
+        if let PromiseOrValue::Value(v) = value {
+            assert_eq!(v.0, 0);
+        } else {
+            panic!("failed expectation!")
         }
     }
 
