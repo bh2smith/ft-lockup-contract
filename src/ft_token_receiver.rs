@@ -29,7 +29,7 @@ impl FungibleTokenReceiver for Contract {
         match ft_message {
             FtMessage::LockupCreate(lockup_create) => {
                 let lockup = lockup_create.into_lockup(&sender_id);
-                lockup.assert_new_valid(amount);
+                lockup.assert_valid(amount);
                 let index = self.internal_add_lockup(&lockup);
                 log!(
                     "Created new lockup for {} with index {}",
