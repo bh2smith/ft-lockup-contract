@@ -89,11 +89,10 @@ mod tests {
             one_near.as_yoctonear().into(),
             serde_json::to_string(&lockup_create).unwrap(),
         );
-        if let PromiseOrValue::Value(v) = value {
-            assert_eq!(v.0, 0);
-        } else {
-            panic!("failed expectation!")
-        }
+        assert!(
+            matches!(value, PromiseOrValue::Value(v) if v.0 == 0),
+            "failed expectation!"
+        );
     }
 
     #[test]
