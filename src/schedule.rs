@@ -160,7 +160,6 @@ impl Schedule {
                 return;
             }
         }
-        unreachable!();
     }
 
     /// Verifies that this schedule is ahead of the given termination schedule at any point of time.
@@ -290,6 +289,42 @@ mod tests {
     }
 
     #[test]
+    #[should_panic = "The timestamp of checkpoint #0 should be less than the timestamp of the next checkpoint"]
+    fn test_assert_valid_fail_increasing_time() {
+        let schedule = Schedule(vec![
+            Checkpoint {
+                timestamp: 1,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 0,
+                balance: ONE_NEAR,
+            },
+        ]);
+        schedule.assert_valid(ONE_NEAR)
+    }
+
+    #[test]
+    #[should_panic = "The balance of checkpoint #1 should be not greater than the balance of the next checkpoint"]
+    fn test_assert_valid_fail_increasing_balance() {
+        let schedule = Schedule(vec![
+            Checkpoint {
+                timestamp: 0,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 1,
+                balance: NearToken::from_near(2),
+            },
+            Checkpoint {
+                timestamp: 2,
+                balance: ONE_NEAR,
+            },
+        ]);
+        schedule.assert_valid(ONE_NEAR)
+    }
+
+    #[test]
     #[should_panic = "at least two checkpoints are required"]
     fn test_assert_valid_fail_num_checkpoints() {
         Schedule(vec![Checkpoint {
@@ -405,6 +440,8 @@ mod tests {
         assert_eq!(s.unlocked_balance(50.into()), ZERO_NEAR);
         assert_eq!(s.unlocked_balance(100.into()), ZERO_NEAR);
         assert_eq!(s.unlocked_balance(200.into()), ZERO_NEAR);
+
+        s.terminate(ZERO_NEAR, 50.into());
     }
 
     #[test]

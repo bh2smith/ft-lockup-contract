@@ -29,7 +29,7 @@ impl FungibleTokenReceiver for Contract {
         match ft_message {
             FtMessage::LockupCreate(lockup_create) => {
                 let lockup = lockup_create.into_lockup(&sender_id);
-                lockup.assert_new_valid(amount);
+                lockup.assert_valid(amount);
                 let index = self.internal_add_lockup(&lockup);
                 log!(
                     "Created new lockup for {} with index {}",
@@ -89,11 +89,10 @@ mod tests {
             one_near.as_yoctonear().into(),
             serde_json::to_string(&lockup_create).unwrap(),
         );
-        if let PromiseOrValue::Value(v) = value {
-            assert_eq!(v.0, 0);
-        } else {
-            panic!("failed expectation!")
-        }
+        assert!(
+            matches!(value, PromiseOrValue::Value(v) if v.0 == 0),
+            "failed expectation!"
+        );
     }
 
     #[test]
