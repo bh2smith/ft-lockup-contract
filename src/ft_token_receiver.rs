@@ -20,7 +20,7 @@ impl FungibleTokenReceiver for Contract {
     ) -> PromiseOrValue<U128> {
         assert_eq!(
             env::predecessor_account_id(),
-            self.token_account_id,
+            self.token_id,
             "Invalid token ID"
         );
         self.assert_deposit_allowlist(&sender_id);

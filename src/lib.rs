@@ -35,7 +35,7 @@ const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 #[near(contract_state, serializers = [borsh])]
 #[derive(PanicOnDefault)]
 pub struct Contract {
-    pub token_account_id: AccountId,
+    pub token_id: AccountId,
 
     pub lockups: Vector<Lockup>,
 
@@ -57,11 +57,11 @@ pub(crate) enum StorageKey {
 #[near]
 impl Contract {
     #[init]
-    pub fn new(token_account_id: AccountId, deposit_allowlist: Vec<AccountId>) -> Self {
+    pub fn new(token_id: AccountId, deposit_allowlist: Vec<AccountId>) -> Self {
         let mut deposit_allowlist_set = UnorderedSet::new(StorageKey::DepositAllowlist);
         deposit_allowlist_set.extend(deposit_allowlist.clone());
         FtLockupNew {
-            token_account_id: token_account_id.clone(),
+            token_id: token_id.clone(),
         }
         .emit();
         FtLockupAddToDepositAllowlist {
@@ -71,7 +71,7 @@ impl Contract {
         Self {
             lockups: Vector::new(StorageKey::Lockups),
             account_lockups: LookupMap::new(StorageKey::AccountLockups),
-            token_account_id,
+            token_id,
             deposit_allowlist: deposit_allowlist_set,
         }
     }
@@ -149,7 +149,7 @@ impl Contract {
 
         if total_claim_amount > 0 {
             PromiseOrValue::from(
-                Promise::new(self.token_account_id.clone())
+                Promise::new(self.token_id.clone())
                     .function_call(
                         "ft_transfer".to_string(),
                         serde_json::json!({
@@ -220,7 +220,7 @@ impl Contract {
 
         if unvested_balance.as_yoctonear() > 0 {
             PromiseOrValue::from(
-                Promise::new(self.token_account_id.clone())
+                Promise::new(self.token_id.clone())
                     .function_call(
                         "ft_transfer".to_string(),
                         serde_json::json!({

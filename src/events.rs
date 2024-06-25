@@ -6,7 +6,7 @@ use near_sdk_contract_tools::event;
 
 #[event(version = "1.0.0", standard = "ft-lockup")]
 pub struct FtLockupNew {
-    pub token_account_id: AccountId,
+    pub token_id: AccountId,
 }
 
 #[event(version = "1.0.0", standard = "ft-lockup")]
@@ -90,8 +90,8 @@ mod tests {
     fn test_ft_lockup_init() {
         testing_env!(get_context());
 
-        let token_account_id = "token.near".parse().unwrap();
-        FtLockupNew { token_account_id }.emit();
+        let token_id = "token.near".parse().unwrap();
+        FtLockupNew { token_id }.emit();
         let expected_log = json!({
             "standard": PACKAGE_NAME,
             "version": VERSION,
