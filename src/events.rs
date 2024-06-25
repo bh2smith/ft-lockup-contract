@@ -96,7 +96,7 @@ mod tests {
             "standard": PACKAGE_NAME,
             "version": VERSION,
             "event": "ft_lockup_new",
-            "data": { "token_account_id": "token.near" },
+            "data": { "token_id": "token.near" },
         });
         assert_equal_logs(expected_log, &test_utils::get_logs()[0]);
     }

@@ -39,7 +39,7 @@ impl FungibleTokenReceiver for Contract {
                 FtLockupCreateLockup::from((index, lockup)).emit()
             }
         }
-        PromiseOrValue::Value(0.into())
+        PromiseOrValue::Value(amount.as_yoctonear().into())
     }
 }
 

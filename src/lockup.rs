@@ -96,6 +96,14 @@ pub struct LockupCreate {
 }
 
 impl LockupCreate {
+    pub fn new_unlocked(account_id: AccountId, total_balance: NearToken) -> Self {
+        Self {
+            account_id,
+            schedule: Schedule::new_unlocked(total_balance),
+            vesting_schedule: None,
+        }
+    }
+
     pub fn into_lockup(&self, payer_id: &AccountId) -> Lockup {
         let vesting_schedule = self.vesting_schedule.clone();
         let lockup = Lockup {

@@ -1,10 +1,11 @@
 #![allow(dead_code)]
+use std::convert::TryInto;
+
+use ft_lockup::ft_token_receiver::FtMessage;
 pub use ft_lockup::{
-    lockup::{Lockup, LockupCreate, LockupIndex},
+    lockup::{LockupCreate, LockupIndex},
     schedule::{Checkpoint, Schedule},
-    termination::{TerminationConfig, VestingConditions},
     view::LockupView,
-    Contract as FtLockupContract,
 };
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
 use near_sdk::{
@@ -23,7 +24,7 @@ use near_workspaces::{
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const ONE_DAY_SEC: u128 = 24 * 60 * 60;
 pub const ONE_YEAR_SEC: u128 = 365 * ONE_DAY_SEC;
-pub const GENESIS_TIMESTAMP_SEC: u128 = 1_600_000_000;
+// pub const GENESIS_TIMESTAMP_SEC: u128 = 1_600_000_000;
 
 pub const NEAR: &str = "near";
 pub const TOKEN_ID: &str = "token.near";
@@ -45,17 +46,18 @@ pub const TERMINATE_GAS: Gas = Gas::from_gas(100 * T_GAS.as_gas());
 // TODO - use arbitrary decimals.
 pub const TOKEN_DECIMALS: u8 = 24;
 pub const TOKEN_TOTAL_SUPPLY: NearToken = NearToken::from_near(1_000_000);
-struct Setup {
+pub struct Setup {
     #[allow(unused)]
     worker: Worker<Sandbox>,
     pub root: Account,
     pub near: Account,
+    // Token owner is also contract owner.
     pub owner: Account,
-    pub token_owner: Account,
     pub contract: Contract,
     pub token: Contract,
 }
 
+#[derive(Debug)]
 pub struct Accounts {
     pub alice: Account,
     pub bob: Account,
@@ -67,37 +69,37 @@ pub struct Accounts {
 pub fn lockup_vesting_schedule(amount: NearToken) -> (Schedule, Schedule) {
     let lockup_schedule = Schedule(vec![
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC,
+            timestamp: 0,
             balance: ZERO_NEAR,
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 2,
+            timestamp: ONE_YEAR_SEC * 2,
             balance: ZERO_NEAR,
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
+            timestamp: ONE_YEAR_SEC * 4,
             balance: amount.saturating_mul(3).saturating_div(4),
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4 + 1,
+            timestamp: ONE_YEAR_SEC * 4 + 1,
             balance: amount,
         },
     ]);
     let vesting_schedule = Schedule(vec![
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC,
+            timestamp: 0,
             balance: ZERO_NEAR,
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC - 1,
+            timestamp: ONE_YEAR_SEC - 1,
             balance: ZERO_NEAR,
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC,
+            timestamp: ONE_YEAR_SEC,
             balance: amount.saturating_div(4),
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
+            timestamp: ONE_YEAR_SEC * 4,
             balance: amount,
         },
     ]);
@@ -107,29 +109,29 @@ pub fn lockup_vesting_schedule(amount: NearToken) -> (Schedule, Schedule) {
 pub fn lockup_vesting_schedule_2(amount: NearToken) -> (Schedule, Schedule) {
     let lockup_schedule = Schedule(vec![
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 2,
+            timestamp: ONE_YEAR_SEC * 2,
             balance: ZERO_NEAR,
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
+            timestamp: ONE_YEAR_SEC * 4,
             balance: amount.saturating_mul(3).saturating_div(4),
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4 + 1,
+            timestamp: ONE_YEAR_SEC * 4 + 1,
             balance: amount,
         },
     ]);
     let vesting_schedule = Schedule(vec![
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC - 1,
+            timestamp: ONE_YEAR_SEC - 1,
             balance: ZERO_NEAR,
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC,
+            timestamp: ONE_YEAR_SEC,
             balance: amount.saturating_div(4),
         },
         Checkpoint {
-            timestamp: GENESIS_TIMESTAMP_SEC + ONE_YEAR_SEC * 4,
+            timestamp: ONE_YEAR_SEC * 4,
             balance: amount,
         },
     ]);
@@ -182,9 +184,11 @@ async fn exec_tx(ct: CallTransaction) -> ExecutionResult<Value> {
 impl Setup {
     pub async fn init(deposit_whitelist: Option<Vec<AccountId>>) -> Self {
         let worker = near_workspaces::sandbox().await.unwrap();
-        let token_owner = worker.dev_create_account().await.unwrap();
+        let root = worker.dev_create_account().await.unwrap();
+        let owner = create_account(&root, "owner").await;
+        let near = create_account(&root, "near").await;
 
-        let (token, contract, root, near, owner) = tokio::join!(
+        let (token, contract) = tokio::join!(
             async {
                 let wasm = std::fs::read("./res/fungible_token.wasm").unwrap();
                 let token = worker.dev_deploy(&wasm).await.unwrap();
@@ -192,7 +196,7 @@ impl Setup {
                 token
                     .call("new")
                     .args_json(json!({
-                        "owner_id": token_owner.id(),
+                        "owner_id": owner.id(),
                         "total_supply": TOKEN_TOTAL_SUPPLY,
                         "metadata": FungibleTokenMetadata {
                           spec: FT_METADATA_SPEC.to_string(),
@@ -214,25 +218,23 @@ impl Setup {
                 let wasm = near_workspaces::compile_project("./").await.unwrap();
                 worker.dev_deploy(&wasm).await.unwrap()
             },
-            async { worker.dev_create_account().await.unwrap() },
-            async { worker.dev_create_account().await.unwrap() },
-            async { worker.dev_create_account().await.unwrap() },
         );
         // TODO - may need to set the signer here.
-        contract
+        let _ = contract
             .call("new")
             .args_json(json!({
                 "token_id": token.id(),
                 "deposit_allowlist": deposit_whitelist.unwrap_or_else(|| vec![owner.id().clone()]),
             }))
-            .deposit(NearToken::from_yoctonear(10));
+            .transact()
+            .await;
 
+        // storage_deposit(&owner, contract.id(), owner.id(), NearToken::from_near(1)).await;
         ft_storage_deposit(&owner, token.id(), contract.id()).await;
 
         Setup {
             worker,
             token,
-            token_owner,
             contract,
             root,
             near,
@@ -257,13 +259,8 @@ impl Setup {
         exec_tx(ct).await
     }
 
-    pub async fn ft_transfer_call(
-        &self,
-        user: &Account,
-        amount: NearToken,
-        msg: &str,
-    ) -> ExecutionResult<Value> {
-        let ct = user
+    pub async fn ft_transfer_call(&self, user: &Account, amount: NearToken, msg: &str) -> U128 {
+        let x = user
             .call(self.token.id(), "ft_transfer_call")
             .args_json(json!({
                 "receiver_id": self.contract.id(),
@@ -271,8 +268,14 @@ impl Setup {
                 "msg": msg,
             }))
             .gas(FT_TRANSFER_CALL_GAS)
-            .deposit(ONE_YOCTO);
-        exec_tx(ct).await
+            .deposit(ONE_YOCTO)
+            .transact()
+            .await
+            .unwrap()
+            .into_result()
+            .unwrap();
+        println!("RESULT {:#?}", x);
+        x.json::<U128>().unwrap()
     }
 
     pub async fn add_lockup(
@@ -280,8 +283,10 @@ impl Setup {
         user: &Account,
         amount: NearToken,
         lockup_create: &LockupCreate,
-    ) -> ExecutionResult<Value> {
-        self.ft_transfer_call(user, amount, &serde_json::to_string(lockup_create).unwrap())
+    ) -> U128 {
+        ft_storage_deposit(&self.owner, self.token.id(), user.id()).await;
+        let create = FtMessage::LockupCreate(lockup_create.clone());
+        self.ft_transfer_call(user, amount, &serde_json::to_string(&create).unwrap())
             .await
     }
 
@@ -423,9 +428,9 @@ impl Setup {
             .unwrap()
     }
 
-    pub async fn get_deposit_whitelist(&self) -> Vec<AccountId> {
+    pub async fn get_deposit_allowlist(&self) -> Vec<AccountId> {
         self.near
-            .view(self.contract.id(), "get_deposit_whitelist")
+            .view(self.contract.id(), "get_deposit_allowlist")
             .await
             .unwrap()
             .json::<Vec<AccountId>>()
@@ -514,18 +519,41 @@ impl Setup {
             .unwrap()
     }
 
-    pub async fn time_travel(&self, seconds: u64) {
-        self.worker.fast_forward(seconds).await.unwrap();
+    pub async fn time_travel(&self, seconds: u128) {
+        self.worker
+            .fast_forward(seconds.try_into().unwrap())
+            .await
+            .unwrap();
     }
 }
 
+async fn create_account(root: &Account, name: &str) -> Account {
+    root.create_subaccount(name)
+        .initial_balance(NearToken::from_near(5))
+        .transact()
+        .await
+        .unwrap()
+        .unwrap()
+}
+
+impl Accounts {
+    pub async fn init(s: &Setup) -> Self {
+        Self {
+            alice: create_account(&s.root, "alice").await,
+            bob: create_account(&s.root, "bob").await,
+            charlie: create_account(&s.root, "chuck").await,
+            dude: create_account(&s.root, "dude").await,
+            eve: create_account(&s.root, "eve").await,
+        }
+    }
+}
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[tokio::test]
     async fn test_setup() {
-        let x = Setup::init(None).await;
-        println!("{:?}", x.contract);
+        let setup = Setup::init(None).await;
+        let _accounts = Accounts::init(&setup).await;
     }
 }
