@@ -3,7 +3,7 @@ mod setup;
 mod e2e_view {
     use super::*;
 
-    use near_sdk::NearToken;
+    use near_sdk::{require, NearToken};
     use setup::*;
 
     #[tokio::test]
@@ -29,7 +29,7 @@ mod e2e_view {
         let amount = NearToken::from_near(60_000);
 
         let lockups = e.get_account_lockups(users.alice.id()).await;
-        assert!(lockups.is_empty());
+        require!(lockups.is_empty());
 
         let (lockup_schedule, vesting_schedule) = lockup_vesting_schedule_2(amount);
 
@@ -62,10 +62,6 @@ mod e2e_view {
         let lockups = e.get_account_lockups(users.alice.id()).await;
         assert!(lockups.is_empty());
 
-        let deposit_list = e.get_deposit_allowlist().await;
-        println!("DEPOSIT LIST {:?}", deposit_list);
-        assert!(deposit_list.contains(e.owner.id()));
-
         // create some lockups
         for user in [&users.alice, &users.bob, &users.charlie] {
             let balance = e
@@ -82,35 +78,35 @@ mod e2e_view {
         let num_lockups = e.get_num_lockups().await;
         assert_eq!(num_lockups, 3);
 
-        // // get_lockups by indices
-        // let res = e.get_lockups(&vec![2, 0]).await;
-        // assert_eq!(res.len(), 2);
-        // assert_eq!(&res[0].1.account_id, users.charlie.id());
-        // assert_eq!(&res[1].1.account_id, users.alice.id());
+        // get_lockups by indices
+        let res = e.get_lockups(&[2, 0]).await;
+        assert_eq!(res.len(), 2);
+        assert_eq!(&res[0].1.account_id, users.charlie.id());
+        assert_eq!(&res[1].1.account_id, users.alice.id());
 
-        // // get_lockups_paged from to
-        // let res = e.get_lockups_paged(Some(1), Some(2)).await;
-        // assert_eq!(res.len(), 1);
-        // assert_eq!(&res[0].1.account_id, users.bob.id());
+        // get_lockups_paged from to
+        let res = e.get_lockups_paged(Some(1), Some(2)).await;
+        assert_eq!(res.len(), 1);
+        assert_eq!(&res[0].1.account_id, users.bob.id());
 
-        // // get_lockups_paged from
-        // let res = e.get_lockups_paged(Some(1), None).await;
-        // assert_eq!(res.len(), 2);
-        // assert_eq!(&res[0].1.account_id, users.bob.id());
-        // assert_eq!(&res[1].1.account_id, users.charlie.id());
+        // get_lockups_paged from
+        let res = e.get_lockups_paged(Some(1), None).await;
+        assert_eq!(res.len(), 2);
+        assert_eq!(&res[0].1.account_id, users.bob.id());
+        assert_eq!(&res[1].1.account_id, users.charlie.id());
 
-        // // get_lockups_paged to
-        // let res = e.get_lockups_paged(None, Some(2)).await;
-        // assert_eq!(res.len(), 2);
-        // assert_eq!(&res[0].1.account_id, users.alice.id());
-        // assert_eq!(&res[1].1.account_id, users.bob.id());
+        // get_lockups_paged to
+        let res = e.get_lockups_paged(None, Some(2)).await;
+        assert_eq!(res.len(), 2);
+        assert_eq!(&res[0].1.account_id, users.alice.id());
+        assert_eq!(&res[1].1.account_id, users.bob.id());
 
-        // // get_lockups_paged all
-        // let res = e.get_lockups_paged(None, None).await;
-        // assert_eq!(res.len(), 3);
-        // assert_eq!(&res[0].1.account_id, users.alice.id());
-        // assert_eq!(&res[1].1.account_id, users.bob.id());
-        // assert_eq!(&res[2].1.account_id, users.charlie.id());
+        // get_lockups_paged all
+        let res = e.get_lockups_paged(None, None).await;
+        assert_eq!(res.len(), 3);
+        assert_eq!(&res[0].1.account_id, users.alice.id());
+        assert_eq!(&res[1].1.account_id, users.bob.id());
+        assert_eq!(&res[2].1.account_id, users.charlie.id());
     }
 
     #[tokio::test]

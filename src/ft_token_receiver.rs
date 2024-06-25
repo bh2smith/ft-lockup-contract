@@ -51,6 +51,7 @@ mod tests {
         util::ZERO_NEAR,
     };
     use near_sdk::{
+        require,
         test_utils::{accounts, VMContextBuilder},
         testing_env,
     };
@@ -89,8 +90,8 @@ mod tests {
             one_near.as_yoctonear().into(),
             serde_json::to_string(&lockup_create).unwrap(),
         );
-        assert!(
-            matches!(value, PromiseOrValue::Value(v) if v.0 == 0),
+        require!(
+            matches!(value, PromiseOrValue::Value(v) if v.0 == one_near.as_yoctonear()),
             "failed expectation!"
         );
     }

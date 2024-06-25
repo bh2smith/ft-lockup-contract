@@ -16,7 +16,7 @@ use near_sdk::{
 use near_workspaces::{
     network::Sandbox,
     operations::CallTransaction,
-    result::{ExecutionResult, Value, ViewResultDetails},
+    result::{ExecutionResult, Value, ValueOrReceiptId, ViewResultDetails},
     types::NearToken,
     Account, Contract, Worker,
 };
@@ -184,7 +184,7 @@ async fn exec_tx(ct: CallTransaction) -> ExecutionResult<Value> {
 impl Setup {
     pub async fn init(deposit_whitelist: Option<Vec<AccountId>>) -> Self {
         let worker = near_workspaces::sandbox().await.unwrap();
-        let root = worker.dev_create_account().await.unwrap();
+        let root = worker.root_account().unwrap();
         let owner = create_account(&root, "owner").await;
         let near = create_account(&root, "near").await;
 
@@ -260,7 +260,7 @@ impl Setup {
     }
 
     pub async fn ft_transfer_call(&self, user: &Account, amount: NearToken, msg: &str) -> U128 {
-        let x = user
+        let result = user
             .call(self.token.id(), "ft_transfer_call")
             .args_json(json!({
                 "receiver_id": self.contract.id(),
@@ -271,11 +271,20 @@ impl Setup {
             .deposit(ONE_YOCTO)
             .transact()
             .await
-            .unwrap()
-            .into_result()
             .unwrap();
-        println!("RESULT {:#?}", x);
-        x.json::<U128>().unwrap()
+        // First receipt is a FT-Transfer. Second is `ft_on_transfer`.
+        let execution_result = result.into_result().unwrap();
+        let outcome = execution_result
+            .receipt_outcomes()
+            .get(1)
+            .expect("exists on succes");
+
+        let value_or_receipt = outcome.clone().into_result().unwrap();
+        if let ValueOrReceiptId::Value(value) = value_or_receipt {
+            value.json::<U128>().unwrap()
+        } else {
+            panic!("Expected value here!")
+        }
     }
 
     pub async fn add_lockup(

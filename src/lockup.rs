@@ -3,7 +3,7 @@ use crate::{
     termination::{TerminationConfig, VestingConditions},
     util::{current_timestamp_sec, ZERO_NEAR},
 };
-use near_sdk::{json_types::U128, near, AccountId, NearToken};
+use near_sdk::{json_types::U128, near, require, AccountId, NearToken};
 
 pub type LockupIndex = u64;
 
@@ -48,10 +48,9 @@ impl Lockup {
             .claimed_balance
             .checked_add(claim_amount)
             .expect("attempt to add with overflow");
-        assert!(
+        require!(
             unlocked_balance >= balance_claimed_new,
-            "too big claim_amount for lockup {}",
-            index,
+            format!("too big claim_amount for lockup {}", index)
         );
 
         self.claimed_balance = balance_claimed_new;

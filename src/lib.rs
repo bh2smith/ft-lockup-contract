@@ -4,8 +4,8 @@ use near_sdk::{
     collections::{LookupMap, UnorderedSet, Vector},
     env,
     json_types::U128,
-    log, near, serde_json, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
-    PromiseOrValue,
+    log, near, require, serde_json, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault,
+    Promise, PromiseOrValue,
 };
 use near_sdk_contract_tools::standard::nep297::Event;
 use std::collections::HashMap;
@@ -192,7 +192,7 @@ impl Contract {
             .expect("Lockup not found");
         let current_timestamp = current_timestamp_sec();
         let termination_timestamp = termination_timestamp.unwrap_or(current_timestamp);
-        assert!(
+        require!(
             termination_timestamp >= current_timestamp,
             "expected termination_timestamp >= now",
         );
@@ -281,7 +281,7 @@ impl Contract {
         for account_id in &account_ids {
             self.deposit_allowlist.remove(account_id);
         }
-        assert!(
+        require!(
             !self.deposit_allowlist.is_empty(),
             "cannot remove all accounts from deposit allowlist",
         );
