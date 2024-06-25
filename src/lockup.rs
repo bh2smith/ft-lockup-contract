@@ -3,7 +3,7 @@ use crate::{
     termination::{TerminationConfig, VestingConditions},
     util::{current_timestamp_sec, ZERO_NEAR},
 };
-use near_sdk::{json_types::U128, near, AccountId, NearToken};
+use near_sdk::{json_types::U128, near, require, AccountId, NearToken};
 
 pub type LockupIndex = u64;
 
@@ -48,10 +48,9 @@ impl Lockup {
             .claimed_balance
             .checked_add(claim_amount)
             .expect("attempt to add with overflow");
-        assert!(
+        require!(
             unlocked_balance >= balance_claimed_new,
-            "too big claim_amount for lockup {}",
-            index,
+            format!("too big claim_amount for lockup {}", index)
         );
 
         self.claimed_balance = balance_claimed_new;
@@ -96,6 +95,14 @@ pub struct LockupCreate {
 }
 
 impl LockupCreate {
+    pub fn new_unlocked(account_id: AccountId, total_balance: NearToken) -> Self {
+        Self {
+            account_id,
+            schedule: Schedule::new_unlocked(total_balance),
+            vesting_schedule: None,
+        }
+    }
+
     pub fn into_lockup(&self, payer_id: &AccountId) -> Lockup {
         let vesting_schedule = self.vesting_schedule.clone();
         let lockup = Lockup {

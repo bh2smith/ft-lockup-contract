@@ -4,8 +4,8 @@ use near_sdk::{
     collections::{LookupMap, UnorderedSet, Vector},
     env,
     json_types::U128,
-    log, near, serde_json, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
-    PromiseOrValue,
+    log, near, require, serde_json, AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault,
+    Promise, PromiseOrValue,
 };
 use near_sdk_contract_tools::standard::nep297::Event;
 use std::collections::HashMap;
@@ -35,7 +35,7 @@ const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 #[near(contract_state, serializers = [borsh])]
 #[derive(PanicOnDefault)]
 pub struct Contract {
-    pub token_account_id: AccountId,
+    pub token_id: AccountId,
 
     pub lockups: Vector<Lockup>,
 
@@ -57,11 +57,11 @@ pub(crate) enum StorageKey {
 #[near]
 impl Contract {
     #[init]
-    pub fn new(token_account_id: AccountId, deposit_allowlist: Vec<AccountId>) -> Self {
+    pub fn new(token_id: AccountId, deposit_allowlist: Vec<AccountId>) -> Self {
         let mut deposit_allowlist_set = UnorderedSet::new(StorageKey::DepositAllowlist);
         deposit_allowlist_set.extend(deposit_allowlist.clone());
         FtLockupNew {
-            token_account_id: token_account_id.clone(),
+            token_id: token_id.clone(),
         }
         .emit();
         FtLockupAddToDepositAllowlist {
@@ -71,7 +71,7 @@ impl Contract {
         Self {
             lockups: Vector::new(StorageKey::Lockups),
             account_lockups: LookupMap::new(StorageKey::AccountLockups),
-            token_account_id,
+            token_id,
             deposit_allowlist: deposit_allowlist_set,
         }
     }
@@ -149,7 +149,7 @@ impl Contract {
 
         if total_claim_amount > 0 {
             PromiseOrValue::from(
-                Promise::new(self.token_account_id.clone())
+                Promise::new(self.token_id.clone())
                     .function_call(
                         "ft_transfer".to_string(),
                         serde_json::json!({
@@ -192,7 +192,7 @@ impl Contract {
             .expect("Lockup not found");
         let current_timestamp = current_timestamp_sec();
         let termination_timestamp = termination_timestamp.unwrap_or(current_timestamp);
-        assert!(
+        require!(
             termination_timestamp >= current_timestamp,
             "expected termination_timestamp >= now",
         );
@@ -220,7 +220,7 @@ impl Contract {
 
         if unvested_balance.as_yoctonear() > 0 {
             PromiseOrValue::from(
-                Promise::new(self.token_account_id.clone())
+                Promise::new(self.token_id.clone())
                     .function_call(
                         "ft_transfer".to_string(),
                         serde_json::json!({
@@ -281,7 +281,7 @@ impl Contract {
         for account_id in &account_ids {
             self.deposit_allowlist.remove(account_id);
         }
-        assert!(
+        require!(
             !self.deposit_allowlist.is_empty(),
             "cannot remove all accounts from deposit allowlist",
         );

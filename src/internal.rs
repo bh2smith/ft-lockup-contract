@@ -2,12 +2,12 @@ use crate::{
     lockup::{Lockup, LockupIndex},
     Contract, StorageKey,
 };
-use near_sdk::{collections::UnorderedSet, AccountId};
+use near_sdk::{collections::UnorderedSet, require, AccountId};
 use std::collections::HashSet;
 
 impl Contract {
     pub(crate) fn assert_deposit_allowlist(&self, account_id: &AccountId) {
-        assert!(
+        require!(
             self.deposit_allowlist.contains(account_id),
             "Not in deposit allowlist"
         );
@@ -62,10 +62,9 @@ impl Contract {
         lockup_ids
             .iter()
             .map(|&lockup_index| {
-                assert!(
+                require!(
                     account_lockup_ids.contains(&lockup_index),
-                    "lockup not found for account: {}",
-                    lockup_index,
+                    format!("lockup not found for account: {}", lockup_index),
                 );
                 let lockup = self.lockups.get(lockup_index).unwrap();
                 (lockup_index, lockup)

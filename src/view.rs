@@ -88,8 +88,8 @@ impl From<LockupCreate> for LockupCreateView {
 
 #[near]
 impl Contract {
-    pub fn get_token_account_id(&self) -> AccountId {
-        self.token_account_id.clone()
+    pub fn get_token_id(&self) -> AccountId {
+        self.token_id.clone()
     }
 
     pub fn get_account_lockups(&self, account_id: AccountId) -> Vec<(LockupIndex, LockupView)> {

@@ -20,7 +20,7 @@ impl FungibleTokenReceiver for Contract {
     ) -> PromiseOrValue<U128> {
         assert_eq!(
             env::predecessor_account_id(),
-            self.token_account_id,
+            self.token_id,
             "Invalid token ID"
         );
         self.assert_deposit_allowlist(&sender_id);
@@ -39,7 +39,7 @@ impl FungibleTokenReceiver for Contract {
                 FtLockupCreateLockup::from((index, lockup)).emit()
             }
         }
-        PromiseOrValue::Value(0.into())
+        PromiseOrValue::Value(amount.as_yoctonear().into())
     }
 }
 
@@ -51,6 +51,7 @@ mod tests {
         util::ZERO_NEAR,
     };
     use near_sdk::{
+        require,
         test_utils::{accounts, VMContextBuilder},
         testing_env,
     };
@@ -89,8 +90,8 @@ mod tests {
             one_near.as_yoctonear().into(),
             serde_json::to_string(&lockup_create).unwrap(),
         );
-        assert!(
-            matches!(value, PromiseOrValue::Value(v) if v.0 == 0),
+        require!(
+            matches!(value, PromiseOrValue::Value(v) if v.0 == one_near.as_yoctonear()),
             "failed expectation!"
         );
     }
