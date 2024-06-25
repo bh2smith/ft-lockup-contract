@@ -514,18 +514,18 @@ impl Setup {
             .unwrap()
     }
 
-    // pub async fn set_time_sec(&self, timestamp_sec: TimestampSec) {
-    //     self.near.borrow_runtime_mut().cur_block.block_timestamp = to_nano(timestamp_sec);
-    // }
+    pub async fn time_travel(&self, seconds: u64) {
+        self.worker.fast_forward(seconds).await.unwrap();
+    }
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[tokio::test]
-//     async fn test_setup() {
-//         let x = setup().await;
-//         println!("{:?}", x.ft_lockup);
-//     }
-// }
+    #[tokio::test]
+    async fn test_setup() {
+        let x = Setup::init(None).await;
+        println!("{:?}", x.contract);
+    }
+}
