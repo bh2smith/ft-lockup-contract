@@ -1,7 +1,4 @@
 #![allow(dead_code)]
-use std::convert::TryInto;
-
-use ft_lockup::ft_token_receiver::FtMessage;
 pub use ft_lockup::{
     lockup::{LockupCreate, LockupIndex},
     schedule::{Checkpoint, Schedule},
@@ -10,35 +7,37 @@ pub use ft_lockup::{
 use near_contract_standards::fungible_token::metadata::{FungibleTokenMetadata, FT_METADATA_SPEC};
 use near_sdk::{
     json_types::{Base58CryptoHash, U128},
+    serde::de::DeserializeOwned,
     serde_json::{self, json},
     AccountId, Gas, Timestamp,
 };
 use near_workspaces::{
     network::Sandbox,
     operations::CallTransaction,
-    result::{ExecutionResult, Value, ValueOrReceiptId, ViewResultDetails},
+    result::{ExecutionFinalResult, ExecutionResult, Value, ValueOrReceiptId, ViewResultDetails},
     types::NearToken,
     Account, Contract, Worker,
 };
+use std::convert::TryInto;
 
+pub const ZERO_NEAR: NearToken = NearToken::from_near(0);
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
-pub const ONE_DAY_SEC: u128 = 24 * 60 * 60;
-pub const ONE_YEAR_SEC: u128 = 365 * ONE_DAY_SEC;
+pub const ONE_DAY_SEC: u128 = 5;
+pub const ONE_YEAR_SEC: u128 = 5 * ONE_DAY_SEC;
+// pub const ONE_DAY_SEC: u128 = 24 * 60 * 60;
+// pub const ONE_YEAR_SEC: u128 = 365 * ONE_DAY_SEC;
 // pub const GENESIS_TIMESTAMP_SEC: u128 = 1_600_000_000;
 
-pub const NEAR: &str = "near";
-pub const TOKEN_ID: &str = "token.near";
-pub const FT_LOCKUP_ID: &str = "ft-lockup.near";
-pub const OWNER_ID: &str = "owner.near";
-pub const DRAFT_OPERATOR_ID: &str = "draft_operator.near";
+// pub const NEAR: &str = "near";
+// pub const TOKEN_ID: &str = "token.near";
+// pub const FT_LOCKUP_ID: &str = "ft-lockup.near";
+// pub const OWNER_ID: &str = "owner.near";
+// pub const DRAFT_OPERATOR_ID: &str = "draft_operator.near";
 
 // https://docs.near.org/concepts/storage/storage-staking#how-much-does-it-cost
 pub const STORAGE_PRICE_PER_BYTE: u128 = 10_000_000_000_000_000_000;
 
-pub const ZERO_NEAR: NearToken = NearToken::from_near(0);
 pub const T_GAS: Gas = Gas::from_gas(10u64.pow(12));
-pub const DEFAULT_GAS: Gas = Gas::from_gas(15 * T_GAS.as_gas());
-pub const MAX_GAS: Gas = Gas::from_gas(300 * T_GAS.as_gas());
 pub const FT_TRANSFER_CALL_GAS: Gas = Gas::from_gas(60 * T_GAS.as_gas());
 pub const CLAIM_GAS: Gas = Gas::from_gas(100 * T_GAS.as_gas());
 pub const TERMINATE_GAS: Gas = Gas::from_gas(100 * T_GAS.as_gas());
@@ -48,7 +47,7 @@ pub const TOKEN_DECIMALS: u8 = 24;
 pub const TOKEN_TOTAL_SUPPLY: NearToken = NearToken::from_near(1_000_000);
 pub struct Setup {
     #[allow(unused)]
-    worker: Worker<Sandbox>,
+    pub worker: Worker<Sandbox>,
     pub root: Account,
     pub near: Account,
     // Token owner is also contract owner.
@@ -273,18 +272,7 @@ impl Setup {
             .await
             .unwrap();
         // First receipt is a FT-Transfer. Second is `ft_on_transfer`.
-        let execution_result = result.into_result().unwrap();
-        let outcome = execution_result
-            .receipt_outcomes()
-            .get(1)
-            .expect("exists on succes");
-
-        let value_or_receipt = outcome.clone().into_result().unwrap();
-        if let ValueOrReceiptId::Value(value) = value_or_receipt {
-            value.json::<U128>().unwrap()
-        } else {
-            panic!("Expected value here!")
-        }
+        get_nth_receipt_value::<U128>(result, 1).expect("THIS SHIT NEVA FAILZ")
     }
 
     pub async fn add_lockup(
@@ -294,9 +282,23 @@ impl Setup {
         lockup_create: &LockupCreate,
     ) -> U128 {
         ft_storage_deposit(&self.owner, self.token.id(), user.id()).await;
-        let create = FtMessage::LockupCreate(lockup_create.clone());
-        self.ft_transfer_call(user, amount, &serde_json::to_string(&create).unwrap())
+        self.ft_transfer_call(
+            user,
+            amount,
+            &serde_json::to_string(&lockup_create.clone()).unwrap(),
+        )
+        .await
+    }
+
+    pub async fn claim(&self, user: &Account) -> NearToken {
+        let result = user
+            .call(self.contract.id(), "claim")
+            .args_json(json!({}))
+            .gas(CLAIM_GAS)
+            .transact()
             .await
+            .unwrap();
+        result.clone().json::<NearToken>().unwrap()
     }
 
     pub async fn claim_specific_lockups(
@@ -516,11 +518,11 @@ impl Setup {
             .unwrap()
     }
 
-    pub async fn ft_balance_of(&self, user: &Account) -> NearToken {
+    pub async fn ft_balance_of(&self, user: &AccountId) -> NearToken {
         self.near
             .view(self.token.id(), "ft_balance_of")
             .args_json(json!({
-                "account_id": user.id(),
+                "account_id": user,
             }))
             .await
             .unwrap()
@@ -536,13 +538,31 @@ impl Setup {
     }
 }
 
-async fn create_account(root: &Account, name: &str) -> Account {
+pub async fn create_account(root: &Account, name: &str) -> Account {
     root.create_subaccount(name)
-        .initial_balance(NearToken::from_near(5))
+        .initial_balance(NearToken::from_near(10))
         .transact()
         .await
         .unwrap()
         .unwrap()
+}
+
+fn get_nth_receipt_value<T: DeserializeOwned>(
+    result: ExecutionFinalResult,
+    n: usize,
+) -> Result<T, ValueOrReceiptId> {
+    let execution_result = result.clone().into_result().unwrap();
+    let outcome = execution_result
+        .receipt_outcomes()
+        .get(n)
+        .expect("exists on succes");
+    let value_or_receipt = outcome.clone().into_result().unwrap();
+    if let ValueOrReceiptId::Value(value) = value_or_receipt {
+        Ok(value.json::<T>().unwrap())
+    } else {
+        println!("Verbose Result {:#?}", execution_result);
+        Err(value_or_receipt)
+    }
 }
 
 impl Accounts {

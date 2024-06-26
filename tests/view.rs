@@ -39,7 +39,7 @@ mod e2e_view {
         let incompatible_vesting_schedule = Schedule(vec![
             Checkpoint {
                 timestamp: ONE_YEAR_SEC * 4,
-                balance: ZERO_NEAR,
+                balance: NearToken::from_near(0),
             },
             Checkpoint {
                 timestamp: ONE_YEAR_SEC * 4 + 1,
