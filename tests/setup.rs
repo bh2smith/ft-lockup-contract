@@ -20,6 +20,7 @@ use near_workspaces::{
 };
 use std::convert::TryInto;
 
+pub const ZERO_NEAR: NearToken = NearToken::from_near(0);
 const ONE_YOCTO: NearToken = NearToken::from_yoctonear(1);
 pub const ONE_DAY_SEC: u128 = 5;
 pub const ONE_YEAR_SEC: u128 = 5 * ONE_DAY_SEC;
@@ -289,7 +290,7 @@ impl Setup {
         .await
     }
 
-    pub async fn claim(&self, user: &Account) -> Result<NearToken, ExecutionFinalResult> {
+    pub async fn claim(&self, user: &Account) -> NearToken {
         let result = user
             .call(self.contract.id(), "claim")
             .args_json(json!({}))
@@ -297,8 +298,7 @@ impl Setup {
             .transact()
             .await
             .unwrap();
-
-        get_nth_receipt_value::<NearToken>(result, 0)
+        result.clone().json::<NearToken>().unwrap()
     }
 
     pub async fn claim_specific_lockups(
@@ -550,18 +550,18 @@ pub async fn create_account(root: &Account, name: &str) -> Account {
 fn get_nth_receipt_value<T: DeserializeOwned>(
     result: ExecutionFinalResult,
     n: usize,
-) -> Result<T, ExecutionFinalResult> {
+) -> Result<T, ValueOrReceiptId> {
     let execution_result = result.clone().into_result().unwrap();
     let outcome = execution_result
         .receipt_outcomes()
         .get(n)
         .expect("exists on succes");
-
     let value_or_receipt = outcome.clone().into_result().unwrap();
     if let ValueOrReceiptId::Value(value) = value_or_receipt {
         Ok(value.json::<T>().unwrap())
     } else {
-        Err(result)
+        println!("Verbose Result {:#?}", execution_result);
+        Err(value_or_receipt)
     }
 }
 
