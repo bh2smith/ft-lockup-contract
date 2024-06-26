@@ -5,11 +5,6 @@ use near_sdk::{
 };
 use near_sdk_contract_tools::standard::nep297::Event;
 
-#[near(serializers = [json])]
-pub enum FtMessage {
-    LockupCreate(LockupCreate),
-}
-
 #[near]
 impl FungibleTokenReceiver for Contract {
     fn ft_on_transfer(
@@ -25,21 +20,18 @@ impl FungibleTokenReceiver for Contract {
         );
         self.assert_deposit_allowlist(&sender_id);
         let amount = NearToken::from_yoctonear(amount.0);
-        let ft_message: FtMessage = serde_json::from_str(&msg).unwrap();
-        match ft_message {
-            FtMessage::LockupCreate(lockup_create) => {
-                let lockup = lockup_create.into_lockup(&sender_id);
-                lockup.assert_valid(amount);
-                let index = self.internal_add_lockup(&lockup);
-                log!(
-                    "Created new lockup for {} with index {}",
-                    lockup.account_id,
-                    index
-                );
-                FtLockupCreateLockup::from((index, lockup)).emit()
-            }
-        }
-        PromiseOrValue::Value(amount.as_yoctonear().into())
+        // TODO - Should we catch this parse failure and return amount to sender?
+        let lockup_create: LockupCreate = serde_json::from_str(&msg).unwrap();
+        let lockup = lockup_create.into_lockup(&sender_id);
+        lockup.assert_valid(amount);
+        let index = self.internal_add_lockup(&lockup);
+        log!(
+            "Created new lockup for {} with index {}",
+            lockup.account_id,
+            index
+        );
+        FtLockupCreateLockup::from((index, lockup)).emit();
+        PromiseOrValue::Value(0.into())
     }
 }
 
@@ -71,7 +63,7 @@ mod tests {
         let one_near = NearToken::from_near(1);
         testing_env!(context.build());
         let mut contract = Contract::new(accounts(0), vec![accounts(1)]);
-        let lockup_create = FtMessage::LockupCreate(LockupCreate {
+        let lockup_create = LockupCreate {
             account_id: "x.near".parse().unwrap(),
             schedule: Schedule(vec![
                 Checkpoint {
@@ -84,14 +76,14 @@ mod tests {
                 },
             ]),
             vesting_schedule: None,
-        });
+        };
         let value = contract.ft_on_transfer(
             accounts(1),
             one_near.as_yoctonear().into(),
             serde_json::to_string(&lockup_create).unwrap(),
         );
         require!(
-            matches!(value, PromiseOrValue::Value(v) if v.0 == one_near.as_yoctonear()),
+            matches!(value, PromiseOrValue::Value(v) if v.0 == 0),
             "failed expectation!"
         );
     }

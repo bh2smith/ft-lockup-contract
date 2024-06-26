@@ -5,7 +5,7 @@ pub(crate) fn nano_to_sec(timestamp: Timestamp) -> u128 {
     (timestamp / 10u64.pow(9)) as u128
 }
 
-pub(crate) fn current_timestamp_sec() -> U128 {
+pub fn current_timestamp_sec() -> U128 {
     U128(nano_to_sec(near_sdk::env::block_timestamp()))
 }
 

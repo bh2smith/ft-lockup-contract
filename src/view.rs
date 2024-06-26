@@ -151,3 +151,37 @@ impl Contract {
         VERSION.into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::Checkpoint;
+
+    use super::*;
+
+    #[test]
+    fn test_nano_to_sec() {
+        let account_id = "x.near".parse().unwrap();
+        let amount = NearToken::from_near(10_000);
+        let schedule = Schedule(vec![
+            Checkpoint {
+                timestamp: 100,
+                balance: ZERO_NEAR,
+            },
+            Checkpoint {
+                timestamp: 200,
+                balance: amount,
+            },
+        ]);
+        schedule.assert_valid(amount);
+        let lockup_create = LockupCreate {
+            account_id,
+            schedule: schedule.clone(),
+            vesting_schedule: None,
+        };
+        // let lockup = lockup_create.into_lockup(&"y.near".parse().unwrap());
+        let lockup_view = LockupCreateView::from(lockup_create);
+        assert_eq!(lockup_view.total_balance, amount);
+        assert_eq!(lockup_view.claimed_balance, ZERO_NEAR);
+        assert_eq!(lockup_view.unclaimed_balance, ZERO_NEAR);
+    }
+}
